@@ -1,0 +1,9 @@
+*.db
+*.db-*
+*.pyc
+.claude/settings.local.json
+.env
+.pytest_cache/
+.venv/
+__pycache__/
+data/

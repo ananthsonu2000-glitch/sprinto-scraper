@@ -1,0 +1,5 @@
+{
+  "_note": "SIMULATION FIXTURE — homepage always times out. Expected: 3 attempts, then INSUFFICIENT_EVIDENCE (retrieval failure is not negative evidence).",
+  "pages": {"/": "<html><body><p>FlakyCo is a SaaS platform.</p></body></html>"},
+  "status": {"/": "timeout"}
+}

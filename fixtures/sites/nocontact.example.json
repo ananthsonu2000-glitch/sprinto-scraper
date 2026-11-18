@@ -1,0 +1,10 @@
+{
+  "_note": "SIMULATION FIXTURE — qualified company, but Hunter returns no suitable person. Expected: NO_SUITABLE_CONTACT.",
+  "pages": {
+    "/": "<html><head><title>NoContact Analytics</title></head><body><p>NoContact is a SaaS analytics platform that processes customer data for retailers.</p><a href=\"/security\">Security</a> <a href=\"/customers\">Customers</a> <a href=\"/careers\">Careers</a></body></html>",
+    "/security": "<html><body><p>NoContact completed its SOC 2 Type II audit and also maintains HIPAA compliant controls for healthcare clients.</p></body></html>",
+    "/customers": "<html><body><p>Trusted by Contoso Retail, Fabrikam Pharmacy and Northwind Grocers. We serve enterprises across retail and healthcare.</p></body></html>",
+    "/careers": "<html><body><p>We're hiring a Security Engineer to support customer audits (Posted 2026-09-20).</p></body></html>"
+  },
+  "status": {}
+}

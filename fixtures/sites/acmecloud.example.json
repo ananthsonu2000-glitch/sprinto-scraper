@@ -1,0 +1,11 @@
+{
+  "_note": "SIMULATION FIXTURE — fictional company. Expected: QUALIFIED (has SOC 2 Type II + ISO 27001: existing compliance is not a disqualifier).",
+  "pages": {
+    "/": "<html><head><title>AcmeCloud - Payroll infrastructure</title></head><body><p>AcmeCloud is a cloud-based payroll platform for growing companies. Our SaaS platform processes payroll and personal data for over 2,000 businesses.</p><p>AcmeCloud offers three products: Payroll API, Benefits Hub and Expense Sync, with integrations for 40+ HR systems.</p><nav><a href=\"/security\">Security</a> <a href=\"/customers\">Customers</a> <a href=\"/careers\">Careers</a> <a href=\"/pricing\">Pricing</a> <a href=\"/blog\">Blog</a> <a href=\"https://twitter.com/acmecloud\">Twitter</a></nav></body></html>",
+    "/security": "<html><head><title>Security at AcmeCloud</title></head><body><p>AcmeCloud maintains a SOC 2 Type II report, available to customers under NDA. We are ISO 27001 certified for our production environment. Customer data is encrypted at rest and in transit.</p></body></html>",
+    "/customers": "<html><head><title>Customers</title></head><body><p>Our customers include Globex Bank, Initech Health and Umbrella Insurance. AcmeCloud serves enterprises in financial services and healthcare.</p></body></html>",
+    "/careers": "<html><head><title>Careers</title></head><body><p>We're hiring a GRC Analyst to own our compliance program (Posted 2026-10-05). We are hiring a Senior Backend Engineer (Posted 2025-01-10).</p></body></html>",
+    "/pricing": "<html><head><title>Pricing</title></head><body><p>Plans start with a free trial. Contact sales for volume pricing.</p></body></html>"
+  },
+  "status": {}
+}

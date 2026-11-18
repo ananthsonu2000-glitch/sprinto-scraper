@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dashboard-live",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "sprinto_agent.api:app", "--port", "8765"],
+      "port": 8765
+    },
+    {
+      "name": "dashboard-simulation-demo",
+      "runtimeExecutable": ".venv/Scripts/python.exe",
+      "runtimeArgs": ["-c", "import os; os.environ['APP_MODE']='simulation'; os.environ['BROWSER_FALLBACK']='false'; os.environ['DB_PATH']='data/demo_recording.db'; os.environ['CHECKPOINT_DB_PATH']='data/demo_recording_cp.db'; os.environ['DEMO_RECIPIENT_EMAIL']='demo.inbox@example.com'; import uvicorn; uvicorn.run('sprinto_agent.api:app', port=8766)"],
+      "port": 8766
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "_note": "SIMULATION FIXTURE — expected DISQUALIFIED (unrelated business).",
+  "pages": {
+    "/": "<html><head><title>Bright Bakery</title></head><body><p>Bright Bakery bakes sourdough bread and pastries in Portland. Visit our retail store on Main Street every morning.</p><a href=\"/menu\">Menu</a> <a href=\"/about\">About</a></body></html>",
+    "/about": "<html><body><p>We have been baking since 1998 with local flour.</p></body></html>"
+  },
+  "status": {}
+}

@@ -1,0 +1,36 @@
+{
+  "version": "capabilities-2026.11-v1",
+  "note": "Approved product claims the agent may use. Each claim keeps a source reference. Wording is deliberately conservative; confirm against current Sprinto materials before any real (non-demo) use. No pricing, guarantees, certification outcomes, or timelines may be stated.",
+  "review_status": "PENDING_HUMAN_CONFIRMATION",
+  "capabilities": [
+    {
+      "id": "compliance_preparation",
+      "name": "Compliance preparation",
+      "approved_claim": "Sprinto helps teams prepare for security compliance frameworks such as SOC 2 and ISO 27001 by mapping controls and tracking readiness work in one place.",
+      "short_claim": "help mapping controls and tracking readiness work for frameworks like SOC 2 and ISO 27001",
+      "source_ref": "https://sprinto.com/ (product overview; confirm wording)"
+    },
+    {
+      "id": "evidence_collection",
+      "name": "Evidence collection",
+      "approved_claim": "Sprinto connects to common cloud and business systems to help collect compliance evidence instead of gathering it by hand for each audit.",
+      "short_claim": "integrations that help collect compliance evidence from connected systems",
+      "source_ref": "https://sprinto.com/ (integrations overview; confirm wording)"
+    },
+    {
+      "id": "continuous_control_monitoring",
+      "name": "Continuous control monitoring",
+      "approved_claim": "Sprinto monitors configured controls on an ongoing basis and flags controls that need attention between audits.",
+      "short_claim": "ongoing monitoring that flags controls needing attention between audits",
+      "source_ref": "https://sprinto.com/ (continuous monitoring; confirm wording)"
+    },
+    {
+      "id": "customer_trust_documentation",
+      "name": "Customer trust documentation",
+      "approved_claim": "Sprinto helps teams share security and compliance information with customers, which can support responses to customer security reviews.",
+      "short_claim": "a way to share security and compliance information with customers during security reviews",
+      "source_ref": "https://sprinto.com/ (trust center; confirm wording)"
+    }
+  ],
+  "forbidden_topics": ["pricing", "discounts", "guarantees", "certification outcomes", "audit pass rates", "time-to-certification promises", "legal or contractual security commitments"]
+}

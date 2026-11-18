@@ -1,0 +1,9 @@
+{"domain": "acmecloud.example", "organization": "AcmeCloud", "_note": "SIMULATION FIXTURE — fictional people", "emails": [
+ {"value": "mark.chen@acmecloud.example", "first_name": "Mark", "last_name": "Chen", "position": "VP Marketing", "seniority": "executive", "department": "marketing", "confidence": 97,
+  "sources": [{"domain": "acmecloud.example", "uri": "https://acmecloud.example/about", "extracted_on": "2026-08-01", "last_seen_on": "2026-10-20", "still_on_page": true}]},
+ {"value": "daniel.ortiz@acmecloud.example", "first_name": "Daniel", "last_name": "Ortiz", "position": "CISO", "seniority": "executive", "department": "it", "confidence": 94,
+  "sources": [{"domain": "conference.example", "uri": "https://conference.example/speakers", "extracted_on": "2026-06-01", "last_seen_on": "2026-09-15", "still_on_page": true}]},
+ {"value": "priya.raman@acmecloud.example", "first_name": "Priya", "last_name": "Raman", "position": "Head of Compliance & GRC", "seniority": "executive", "department": "legal", "confidence": 92,
+  "sources": [{"domain": "acmecloud.example", "uri": "https://acmecloud.example/team", "extracted_on": "2026-07-01", "last_seen_on": "2026-10-01", "still_on_page": true}]},
+ {"value": "info@acmecloud.example", "first_name": null, "last_name": null, "position": null, "seniority": null, "department": null, "confidence": 60, "sources": []}
+]}

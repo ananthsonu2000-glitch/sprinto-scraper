@@ -1,0 +1,31 @@
+{
+  "version": "policy-2026.11-v1",
+  "research": {
+    "initial_extra_pages": 3,
+    "max_additional_rounds": 3,
+    "max_new_pages_per_round": 2,
+    "max_pages_per_domain": 10,
+    "max_redirects": 5,
+    "min_text_chars_before_browser_fallback": 300,
+    "page_keywords": ["security", "trust", "compliance", "customers", "customer", "case-studies", "case-study", "product", "platform", "careers", "jobs", "about", "news", "blog", "press", "privacy", "integrations", "pricing"],
+    "guess_paths": ["/security", "/trust", "/customers", "/careers", "/about", "/news", "/product", "/integrations"]
+  },
+  "retries": {
+    "read_max_attempts": 3,
+    "backoff_seconds": [0.5, 1.5],
+    "send_reconcile_retry_max": 1,
+    "calendar_check_max_attempts": 3
+  },
+  "hunter": {
+    "cache_ttl_days": 7,
+    "result_limit": 10
+  },
+  "reply": {
+    "no_reply_handoff_hours": 48,
+    "max_counterproposal_rounds": 2,
+    "slots_to_propose": 3
+  },
+  "leases": {
+    "prospect_lease_seconds": 300
+  }
+}

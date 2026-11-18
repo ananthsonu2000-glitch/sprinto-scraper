@@ -1,0 +1,11 @@
+{
+  "_note": "SIMULATION FIXTURE — fictional companies for the simulated Hunter Discover. Simulates a plan WITHOUT paid filters, so 'funding' is ignored (as real Hunter does) and must come from news.",
+  "plan_has_paid_filters": false,
+  "companies": [
+    {"domain": "acmecloud.example", "organization": "AcmeCloud", "industry": "Software Development", "headcount": "201-500", "country": "US", "funding_series": "series_b", "open_roles": ["GRC Analyst", "Senior Backend Engineer"], "keywords": ["payroll", "saas", "hr"]},
+    {"domain": "nocontact.example", "organization": "NoContact Analytics", "industry": "Data Infrastructure and Analytics", "headcount": "51-200", "country": "GB", "funding_series": "series_a", "open_roles": ["Security Engineer"], "keywords": ["analytics", "retail", "saas"]},
+    {"domain": "quietsaas.example", "organization": "QuietSaaS", "industry": "Software Development", "headcount": "11-50", "country": "DE", "funding_series": "seed", "open_roles": [], "keywords": ["scheduling", "saas"]},
+    {"domain": "certifyfast.example", "organization": "CertifyFast", "industry": "Computer and Network Security", "headcount": "51-200", "country": "US", "funding_series": "series_a", "open_roles": ["Account Executive"], "keywords": ["compliance", "soc 2"]},
+    {"domain": "brightbakery.example", "organization": "Bright Bakery", "industry": "Retail", "headcount": "1-10", "country": "US", "funding_series": null, "open_roles": ["Baker"], "keywords": ["bakery"]}
+  ]
+}

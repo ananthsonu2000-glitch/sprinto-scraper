@@ -1,0 +1,90 @@
+{
+  "version": "rubric-2026.11-v1",
+  "note": "Proposed project rules for this MVP. Not Sprinto's official internal ICP.",
+  "qualification": {
+    "dimensions": [
+      {
+        "id": "business_fit",
+        "name": "Business and technology fit",
+        "weight": 25,
+        "levels": {
+          "0": "Unsupported or unrelated",
+          "1": "Technology/software service; delivery model unclear",
+          "2": "Explicit cloud software or digitally delivered service handling customer data"
+        }
+      },
+      {
+        "id": "customer_trust",
+        "name": "Customer trust exposure",
+        "weight": 20,
+        "levels": {
+          "0": "Unsupported",
+          "1": "B2B offering with limited buyer detail",
+          "2": "Explicit enterprise offering, named enterprise customers, or regulated customer segments"
+        }
+      },
+      {
+        "id": "compliance_workload",
+        "name": "Relevant compliance workload",
+        "weight": 25,
+        "levels": {
+          "0": "Unsupported",
+          "1": "Security documentation or broad compliance references",
+          "2": "Explicit audit, framework, certification, ongoing controls, or customer-assurance activity"
+        }
+      },
+      {
+        "id": "reason_now",
+        "name": "Reason to engage now",
+        "weight": 20,
+        "levels": {
+          "0": "Absent, undated, or outside the specified window",
+          "1": "Dated expansion or enterprise launch within 12 months",
+          "2": "Active audit initiative, relevant hiring, or explicit compliance deadline evidenced within 6 months"
+        }
+      },
+      {
+        "id": "delivery_complexity",
+        "name": "Delivery complexity",
+        "weight": 10,
+        "levels": {
+          "0": "Unsupported",
+          "1": "Evidence of integrations or several products",
+          "2": "Documented multiple frameworks, environments, or products creating distinct compliance work"
+        }
+      }
+    ],
+    "qualified_min_total": 65,
+    "required_business_fit_level": 2,
+    "required_min_compliance_workload_level": 1,
+    "reason_now_window_months": {"level_2": 6, "level_1": 12},
+    "zero_reasons": ["unknown", "explicit_negative", "outside_window"]
+  },
+  "contact": {
+    "criteria": [
+      {"id": "company_association", "levels": {"0": "unsupported", "1": "provider association", "2": "recent or first-party confirmation"}},
+      {"id": "functional_ownership", "levels": {"0": "unrelated", "1": "adjacent", "2": "relevant security/compliance/GRC or technical responsibility"}},
+      {"id": "ability_to_drive_action", "levels": {"0": "unclear", "1": "contributor", "2": "relevant function or initiative leader"}},
+      {"id": "need_match", "levels": {"0": "none", "1": "plausible", "2": "explicit connection"}},
+      {"id": "identity_quality", "levels": {"0": "missing/conflicting", "1": "partially supported", "2": "consistent named person and title with evidence"}}
+    ],
+    "pass_min_total": 8,
+    "recent_source_months": 12,
+    "role_preference": ["compliance_grc", "security", "engineering_leader", "technical_founder_ceo"],
+    "founder_led_max_employees": 50
+  },
+  "pain": {
+    "max_scores": {"evidence": 3, "recipient": 2, "consequence": 2, "capability": 2, "honest": 1},
+    "pass_min_total": 7,
+    "pass_min_evidence": 2,
+    "required_honest": 1,
+    "required_count": 2
+  },
+  "email": {
+    "criteria": ["specific_hook", "useful_hypothesis", "relevant_value", "simple_next_step", "clarity"],
+    "pass_min_total": 8,
+    "word_range": [80, 120],
+    "hard_word_range": [70, 135],
+    "max_revisions": 2
+  }
+}

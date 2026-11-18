@@ -1,0 +1,8 @@
+{
+  "_note": "SIMULATION FIXTURE — expected DISQUALIFIED (direct compliance-platform competitor).",
+  "pages": {
+    "/": "<html><head><title>CertifyFast</title></head><body><p>CertifyFast is a compliance automation platform that helps startups get SOC 2 ready. Our software connects to your cloud stack and handles customer data securely.</p><a href=\"/customers\">Customers</a></body></html>",
+    "/customers": "<html><body><p>Trusted by Hooli, Pied Piper and Raviga.</p></body></html>"
+  },
+  "status": {}
+}

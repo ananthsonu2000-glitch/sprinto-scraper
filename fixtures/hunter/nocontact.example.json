@@ -1,0 +1,6 @@
+{"domain": "nocontact.example", "organization": "NoContact", "_note": "SIMULATION FIXTURE — no suitable contact", "emails": [
+ {"value": "sam.lee@nocontact.example", "first_name": "Sam", "last_name": "Lee", "position": "Sales Intern", "seniority": "junior", "department": "sales", "confidence": 80,
+  "sources": [{"domain": "nocontact.example", "uri": "https://nocontact.example/team", "last_seen_on": "2026-10-01", "still_on_page": true}]},
+ {"value": "jo.park@nocontact.example", "first_name": "Jo", "last_name": "Park", "position": "Marketing Manager", "seniority": "senior", "department": "marketing", "confidence": 85,
+  "sources": [{"domain": "nocontact.example", "uri": "https://nocontact.example/team", "last_seen_on": "2026-10-01", "still_on_page": true}]}
+]}
