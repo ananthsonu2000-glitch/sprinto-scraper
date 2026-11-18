@@ -1,0 +1,9 @@
+.venv
+data
+demo
+tests
+docs
+scripts
+*.db
+.env
+__pycache__

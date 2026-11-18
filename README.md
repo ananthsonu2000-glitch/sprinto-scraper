@@ -13,7 +13,7 @@ that checks Google Calendar and books only explicitly agreed slots.
 
 ```bash
 python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements.txt      # Windows; use .venv/bin/python elsewhere
+.venv/Scripts/python -m pip install -r requirements-dev.txt      # Windows; use .venv/bin/python elsewhere
 .venv/Scripts/python -m pytest -q                              # 124 tests, all offline
 .venv/Scripts/python scripts/demo_simulation.py                # end-to-end walkthrough in the terminal
 .venv/Scripts/python -m uvicorn sprinto_agent.api:app --port 8765   # dashboard at http://localhost:8765
@@ -125,6 +125,36 @@ pages that build their content with JavaScript (for example Chargebee's security
 are rendered, so certification wording such as "SOC 2 Type II" and "ISO 27001:2022" is
 captured as evidence. Trust centres on subdomains (such as `trust.<company>.com`) are
 selected as security pages.
+
+## Deploy on Vercel (live)
+
+The repo deploys as-is to Vercel (`api/index.py` + `vercel.json`, Python runtime). It runs the
+**real** app (`APP_MODE=real_demo` by default). Delivery is still enforced in code: every email and
+calendar invite can only go to `DEMO_RECIPIENT_EMAIL`.
+
+What changes on serverless (automatic):
+- **State**: SQLite lives in `/tmp` and is snapshotted to **Vercel Blob** after every unit of work,
+  then restored on cold start. Create a Blob store (Storage → Blob, **Private**) and connect it to the
+  project; this adds `BLOB_READ_WRITE_TOKEN`. Without it, data is lost whenever the function restarts.
+- **Worker**: there is no background process. The dashboard's **Auto-run worker** box (on by default
+  when hosted) runs a time-boxed worker tick every 20 s while a dashboard tab is open; each tick
+  advances one stage per prospect and saves after each one.
+- **No headless-browser fallback** (Chromium does not fit in a function); JS-only pages fall back to
+  the other evidence sources.
+
+Steps:
+1. vercel.com → Add New → Project → import this GitHub repo → name it `sprinto-scraper`.
+2. Environment variables (same names as `.env.example`): `GEMINI_API_KEY`, `GEMINI_FREE_TIER`,
+   `HUNTER_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`,
+   `GMAIL_SENDER_ADDRESS`, `DEMO_RECIPIENT_EMAIL`, `REAL_SENDS_ENABLED=true`, `SENDER_DISPLAY_NAME`,
+   `ORGANIZER_TIMEZONE`. Do not set `DB_PATH`.
+3. Deploy, then Storage → Create → Blob (Private) → connect to the project → Redeploy.
+4. Optional: Settings → Deployment Protection → Vercel Authentication **off** if the URL must open
+   without a Vercel login.
+
+Set `APP_MODE=simulation` instead to host the credential-free fixture demo.
+Limits: a single dashboard user at a time (concurrent instances can overwrite each other's snapshot),
+and the URL is public, so anyone with it can see the pipeline data and trigger runs.
 
 ## Demo delivery (enforced in code)
 

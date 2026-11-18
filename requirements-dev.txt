@@ -1,0 +1,4 @@
+-r requirements.txt
+pytest>=8
+# Browser-rendering fallback for JavaScript-only pages (local/live use; not on Vercel)
+playwright>=1.45   # then: python -m playwright install chromium

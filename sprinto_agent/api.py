@@ -10,15 +10,16 @@ from __future__ import annotations
 
 import csv
 import io
+import os
 import threading
 import time
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from . import store
+from . import persist, store
 from .config import Mode, Settings
 from .context import build_context, readiness
 from .human import HumanActionError, resolve_escalation, resume_integration
@@ -31,12 +32,17 @@ LOCK = threading.RLock()  # one sqlite connection per process; serialise access
 
 app = FastAPI(title="Sprinto Prospecting MVP (demo)")
 _state: dict = {}
+SERVERLESS = bool(os.environ.get("SERVERLESS") or os.environ.get("VERCEL"))
+TICK_BUDGET = float(os.environ.get("TICK_BUDGET_SECONDS") or 150)
 
 
 def ctx():
     if "ctx" not in _state:
+        persist.restore()  # serverless cold start: pull the last snapshot (no-op locally)
         _state["ctx"] = build_context(Settings.from_env())
         _state["worker"] = Worker(_state["ctx"], owner="api-embedded")
+        if SERVERLESS:
+            _state["worker"].max_steps = int(os.environ.get("SERVERLESS_MAX_STEPS") or 1)
         if _state["ctx"].settings.embedded_worker:
             def loop():
                 while True:
@@ -48,6 +54,15 @@ def ctx():
                     time.sleep(_state["ctx"].settings.worker_poll_seconds)
             threading.Thread(target=loop, daemon=True).start()
     return _state["ctx"]
+
+
+@app.middleware("http")
+async def snapshot_after_writes(request: Request, call_next):
+    response = await call_next(request)
+    if request.method != "GET" and persist.enabled() and "ctx" in _state:
+        with LOCK:
+            persist.save()
+    return response
 
 
 class RunIn(BaseModel):
@@ -75,7 +90,7 @@ def status():
     with LOCK:
         c = ctx()
         return {"settings": c.settings.public_view(), "versions": c.versions.summary(), "readiness": readiness(c),
-                "mode_labels": Mode.LABELS}
+                "mode_labels": Mode.LABELS, "serverless": SERVERLESS}
 
 
 @app.get("/api/tools")
@@ -104,6 +119,8 @@ def start_run(body: RunIn):
 def tick():
     with LOCK:
         ctx()
+        if SERVERLESS:
+            return _state["worker"].tick(budget_seconds=TICK_BUDGET, on_progress=persist.save)
         return _state["worker"].tick()
 
 

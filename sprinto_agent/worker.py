@@ -32,18 +32,29 @@ class Worker:
         self.ctx = ctx
         self.owner = owner or f"{socket.gethostname()}:{os.getpid()}:{uuid.uuid4().hex[:6]}"
         self.lease_s = ctx.policy["leases"]["prospect_lease_seconds"]
+        self._deadline, self._on_progress, self._stats = None, None, {}
+        self.max_steps = 10  # stages advanced per prospect per tick (serverless uses 1)
 
     def _with_lease(self, pid, fn):
+        if self._deadline is not None and time.monotonic() > self._deadline:
+            self._stats["deferred"] = self._stats.get("deferred", 0) + 1
+            return None  # out of time budget: picked up on the next tick
         if not store.acquire_lease(self.ctx.conn, pid, self.owner, self.lease_s):
             return None
         try:
             return fn()
         finally:
             store.release_lease(self.ctx.conn, pid, self.owner)
+            if self._on_progress:
+                self._on_progress()
 
-    def tick(self) -> dict:
+    def tick(self, budget_seconds: float | None = None, on_progress=None) -> dict:
+        """One pass over all work. budget_seconds stops *starting* new units after that long
+        (serverless time limits); on_progress runs after every unit (serverless snapshots)."""
         c = self.ctx.conn
         stats = {"outreach": 0, "polled": 0, "replies_processed": 0, "deadlines": 0}
+        self._stats, self._on_progress = stats, on_progress
+        self._deadline = time.monotonic() + budget_seconds if budget_seconds else None
         store.replay_fallback_log(c)
         hunter = store.get_integration_status(c, "hunter")
         hunter_paused = bool(hunter and hunter["status"] in ("paused_quota", "auth_failed", "setup_required"))
@@ -54,7 +65,7 @@ class Worker:
             " ORDER BY created_at", Stage.OUTREACH_ACTIVE)
             if not (hunter_paused and r["stage"] == Stage.QUALIFIED)]
         for pid in active:
-            if self._with_lease(pid, lambda: process_prospect(self.ctx, pid)) is not None:
+            if self._with_lease(pid, lambda: process_prospect(self.ctx, pid, max_steps=self.max_steps)) is not None:
                 stats["outreach"] += 1
 
         # 2) poll tracked threads (only campaign threads; never the wider inbox)

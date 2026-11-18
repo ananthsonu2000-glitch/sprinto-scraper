@@ -109,6 +109,7 @@ details summary{cursor:pointer;color:var(--muted);margin:8px 0}
         <button class="secondary" id="tick">Run worker tick</button>
         <button class="secondary" id="fixtures" title="Fill the fixture domains (simulation mode)">Use fixture domains</button>
       </div>
+      <label class="small row" id="autoWrap" title="Hosted (serverless) version has no background worker: this page runs the worker while it is open"><input type="checkbox" id="autoTick" style="width:auto"> Auto-run worker every 20s while this page is open</label>
       <p class="small muted" id="runMsg"></p>
     </section>
     <section class="panel">
@@ -156,6 +157,7 @@ let state = {sel:null, tab:"evidence", mode:null};
 async function loadStatus(){
   const s = await api("/api/status");
   state.mode = s.settings.mode;
+  if (state.serverless === undefined) { state.serverless = !!s.serverless; if (s.serverless) $("#autoTick").checked = true; }
   $("#mode").textContent = s.settings.mode.replace("_"," ").toUpperCase();
   $("#mode").className = "mode " + s.settings.mode;
   $("#modeLabel").textContent = s.settings.mode_label;
@@ -372,6 +374,14 @@ async function addSelected(){
 loadDiscoveryOptions();
 let startView = "pipe"; try { startView = localStorage.getItem("view") || "pipe"; } catch(e) {}
 showView(startView);
+let ticking = false;
+setInterval(async () => {
+  if (!$("#autoTick").checked || ticking) return;
+  ticking = true;
+  try { const r = await api("/api/worker/tick", {method:"POST"}); $("#runMsg").textContent = "Auto worker tick: " + JSON.stringify(r); refresh(); }
+  catch(e){ $("#runMsg").textContent = "Auto tick: " + e.message; }
+  ticking = false;
+}, 20000);
 refresh(); setInterval(() => { if (!$("#pipelineView").hidden) { loadRows(); loadEsc(); } }, 15000);
 </script>
 </body>

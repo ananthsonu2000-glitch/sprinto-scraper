@@ -470,7 +470,7 @@ All untrusted text is HTML-escaped; links are rendered only for `http(s)` URLs.
 
 ```bash
 python -m venv .venv
-.venv/Scripts/python -m pip install -r requirements.txt      # use .venv/bin/python on macOS/Linux
+.venv/Scripts/python -m pip install -r requirements-dev.txt      # use .venv/bin/python on macOS/Linux
 .venv/Scripts/python -m playwright install chromium          # browser fallback
 .venv/Scripts/python -m pytest -q                            # offline tests
 cp .env.example .env                                         # then fill it in (never commit .env)
