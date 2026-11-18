@@ -16,11 +16,16 @@ def _fake_blob(monkeypatch):
             assert req.headers["x-vercel-blob-access"] == "private"
             assert req.headers["x-allow-overwrite"] == "1"
             stored[req.url.params["pathname"]] = req.content
-            return httpx.Response(200, json={"pathname": req.url.params["pathname"]})
+            return httpx.Response(200, json={"pathname": req.url.params["pathname"], "etag": f'"v{len(seen)}"'})
         assert req.url.host == "store1.private.blob.vercel-storage.com"
         assert req.url.params["cache"] == "0"
         key = req.url.path.lstrip("/")
-        return httpx.Response(200, content=stored[key]) if key in stored else httpx.Response(404)
+        if key not in stored:
+            return httpx.Response(404)
+        tag = f'"{hash(stored[key]) & 0xffff}"'
+        if req.headers.get("if-none-match") == tag:
+            return httpx.Response(304)
+        return httpx.Response(200, content=stored[key], headers={"etag": tag})
 
     real = httpx.Client
     monkeypatch.setattr(persist.httpx, "Client", lambda **kw: real(transport=httpx.MockTransport(handler), **kw))
@@ -53,3 +58,20 @@ def test_disabled_without_token(monkeypatch):
     monkeypatch.delenv("BLOB_READ_WRITE_TOKEN", raising=False)
     assert persist.restore() == []
     persist.save()  # no-op, no network
+
+
+def test_detects_snapshot_saved_by_another_instance(tmp_path, monkeypatch):
+    stored, _ = _fake_blob(monkeypatch)
+    monkeypatch.setenv("BLOB_READ_WRITE_TOKEN", "vercel_blob_rw_STORE1_secret")
+    monkeypatch.setenv("DB_PATH", str(tmp_path / "sprinto.db"))
+    monkeypatch.setenv("CHECKPOINT_DB_PATH", str(tmp_path / "checkpoints.db"))
+    stored["sprinto-state/sprinto.db"] = b"first"
+    persist.wipe_local()
+    persist.restore()                      # this instance holds version "first"
+    assert persist.is_stale() is False     # 304: nothing new
+    stored["sprinto-state/sprinto.db"] = b"second"   # another instance saved
+    assert persist.is_stale() is True
+    persist.wipe_local()
+    persist.restore()
+    assert (tmp_path / "sprinto.db").read_bytes() == b"second"
+    assert persist.is_stale() is False

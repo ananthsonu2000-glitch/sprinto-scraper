@@ -56,8 +56,24 @@ def ctx():
     return _state["ctx"]
 
 
+def _reload_if_stale():
+    """Serverless: several instances may run at once; pick up snapshots saved by the others."""
+    if "ctx" in _state and persist.is_stale():
+        c = _state["ctx"]
+        for conn in (c.extras.get("checkpoint_conn"), c.conn):
+            try:
+                conn and conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+        _state.clear()
+        persist.wipe_local()
+
+
 @app.middleware("http")
 async def snapshot_after_writes(request: Request, call_next):
+    if persist.enabled() and request.url.path.startswith("/api/"):
+        with LOCK:
+            _reload_if_stale()
     response = await call_next(request)
     if request.method != "GET" and persist.enabled() and "ctx" in _state:
         with LOCK:
