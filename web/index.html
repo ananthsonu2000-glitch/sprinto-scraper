@@ -249,6 +249,16 @@ input:focus,textarea:focus,select:focus{border-color:var(--line-2)}
 @media (prefers-reduced-motion:reduce){.tswitch .knob,.tswitch .trail{transition:none}}
 
 /* ---------- assistant */
+.av{width:36px;height:36px;flex:none;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:inset 0 -3px 6px rgba(0,0,0,.18),inset 0 2px 3px rgba(255,255,255,.35)}
+.av svg{width:78%;height:78%}
+.av.sm{width:26px;height:26px}
+.av.lg{width:42px;height:42px}
+.ai-fab .av{width:30px;height:30px;background:var(--accent-ink);color:var(--accent);box-shadow:none}
+.ai-fab{padding:8px 18px 8px 8px}
+.mrow{display:flex;gap:8px;align-items:flex-end;align-self:flex-start;max-width:94%}
+.mrow .msg{max-width:none}
+.typing{display:flex;gap:8px;align-items:center}
+
 .ai-fab{position:fixed;right:22px;bottom:22px;z-index:40;display:flex;align-items:center;gap:10px;padding:12px 18px 12px 14px;border-radius:99px;border:0;cursor:pointer;
   background:var(--accent);color:var(--accent-ink);font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,.35);transition:transform .15s}
 .ai-fab:hover{transform:translateY(-2px)} .ai-fab:active{transform:scale(.97)}
@@ -341,9 +351,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--line-2)}
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
-<button class="ai-fab" id="aiFab" aria-haspopup="dialog" aria-controls="ai"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>Ask the assistant</button>
+<button class="ai-fab" id="aiFab" aria-haspopup="dialog" aria-controls="ai"><span class="av"><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="15" ry="6.5" transform="rotate(-24 20 20)" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".45"/><path d="M20 8.5c.9 6.2 2.4 7.7 8.6 8.6v.1c-6.2.9-7.7 2.4-8.6 8.6h-.1c-.9-6.2-2.4-7.7-8.6-8.6v-.1c6.2-.9 7.7-2.4 8.6-8.6z" fill="currentColor"/><circle cx="29.5" cy="11" r="1.3" fill="currentColor"/><circle cx="11" cy="28.5" r=".9" fill="currentColor" opacity=".7"/></svg></span>Ask the assistant</button>
 <section class="ai" id="ai" role="dialog" aria-label="Project assistant" hidden>
-  <div class="ai-head"><h2>Assistant<span class="sub">Only about this project. It can also do the work.</span></h2>
+  <div class="ai-head"><span class="av lg"><svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="15" ry="6.5" transform="rotate(-24 20 20)" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".45"/><path d="M20 8.5c.9 6.2 2.4 7.7 8.6 8.6v.1c-6.2.9-7.7 2.4-8.6 8.6h-.1c-.9-6.2-2.4-7.7-8.6-8.6v-.1c6.2-.9 7.7-2.4 8.6-8.6z" fill="currentColor"/><circle cx="29.5" cy="11" r="1.3" fill="currentColor"/><circle cx="11" cy="28.5" r=".9" fill="currentColor" opacity=".7"/></svg></span><h2>Assistant<span class="sub">Only about this project. It can also do the work.</span></h2>
     <button class="iconbtn" id="aiNew" title="Start a new chat">New chat</button><button class="iconbtn" id="aiClose" aria-label="Close assistant">✕</button></div>
   <div class="ai-body" id="aiBody" aria-live="polite"></div>
   <form class="ai-foot" id="aiForm"><textarea id="aiIn" rows="1" placeholder="Ask, or tell it what to do…" aria-label="Message the assistant"></textarea><button class="btn" id="aiSend">Send</button></form>
@@ -841,6 +851,7 @@ applyTheme(theme);
 $("#theme").onclick = () => { theme = theme === "light" ? "dark" : "light"; applyTheme(theme); try { localStorage.setItem("theme", theme); } catch(e) {} };
 
 // ---------- project assistant
+const AV_SVG = '<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="20" cy="20" rx="15" ry="6.5" transform="rotate(-24 20 20)" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".45"/><path d="M20 8.5c.9 6.2 2.4 7.7 8.6 8.6v.1c-6.2.9-7.7 2.4-8.6 8.6h-.1c-.9-6.2-2.4-7.7-8.6-8.6v-.1c6.2-.9 7.7-2.4 8.6-8.6z" fill="currentColor"/><circle cx="29.5" cy="11" r="1.3" fill="currentColor"/><circle cx="11" cy="28.5" r=".9" fill="currentColor" opacity=".7"/></svg>';
 const AI = {conv: null, busy: false};
 try { AI.conv = localStorage.getItem("aiConv"); } catch(e) {}
 if (!AI.conv) { AI.conv = "c" + Math.random().toString(36).slice(2, 10); try { localStorage.setItem("aiConv", AI.conv); } catch(e) {} }
@@ -852,7 +863,8 @@ function aiMsgHTML(m){
   const acts = (d.actions || []).map(a => `<div class="confirm" id="act_${esc(a.id)}"><b>${esc(a.summary)}</b>${a.status && a.status !== "pending"
       ? `<span class="tag ${a.status === "done" ? "ok" : a.status === "failed" ? "bad" : ""}">${esc(a.status === "done" ? "Done" : a.status === "failed" ? "Failed" : "Cancelled")}</span>`
       : `<div class="row"><button class="btn sm" onclick="aiDecide('${esc(a.id)}','confirm')">Confirm</button><button class="btn quiet sm" onclick="aiDecide('${esc(a.id)}','cancel')">Cancel</button></div>`}</div>`).join("");
-  return `<div class="msg ${m.role === "user" ? "user" : "assistant"}">${esc(m.content)}${links ? `<div class="links">${links}</div>` : ""}${acts}</div>`;
+  const bubble = `<div class="msg ${m.role === "user" ? "user" : "assistant"}">${esc(m.content)}${links ? `<div class="links">${links}</div>` : ""}${acts}</div>`;
+  return m.role === "user" ? bubble : `<div class="mrow"><span class="av sm">${AV_SVG}</span>${bubble}</div>`;
 }
 function aiNav(e, href){ e.preventDefault(); location.hash = href; if (window.innerWidth < 860) aiShow(false); }
 async function aiLoad(){
@@ -867,7 +879,7 @@ async function aiSend(text){
   text = (text || $("#aiIn").value).trim(); if (!text || AI.busy) return;
   AI.busy = true; $("#aiIn").value = ""; $("#aiSend").disabled = true;
   if ($(".ai-intro")) $("#aiBody").innerHTML = "";
-  $("#aiBody").insertAdjacentHTML("beforeend", aiMsgHTML({role: "user", content: text}) + `<div class="typing" id="aiTyping">Working on it…</div>`);
+  $("#aiBody").insertAdjacentHTML("beforeend", aiMsgHTML({role: "user", content: text}) + `<div class="typing" id="aiTyping"><span class="av sm">${AV_SVG}</span>Working on it…</div>`);
   $("#aiBody").scrollTop = 1e9;
   try { await post("/api/assistant", {conversation_id: AI.conv, message: text}); }
   catch(e) { $("#aiBody").insertAdjacentHTML("beforeend", aiMsgHTML({role: "assistant", content: "Sorry, that failed: " + e.message})); }
