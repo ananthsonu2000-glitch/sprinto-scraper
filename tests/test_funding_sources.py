@@ -135,6 +135,34 @@ def test_sec_filing_matches_a_time_window_only_filter(ctx, monkeypatch):
     assert q["status"] == "matched" and "SEC Form D" in q["basis"]
 
 
+def test_hunter_confirms_industry_for_companies_found_in_the_news(ctx, monkeypatch):
+    """Auditly/Bigco come from headlines; Hunter is asked whether their domain fits the industry."""
+    software = {"auditly.example"}
+    known = {"Auditly": "auditly.example", "Bigco": "bigco.example"}
+
+    def discover(body):
+        org = body.get("organization", {})
+        if "name" in org:  # name -> domain lookup
+            return {"data": [{"organization": n, "domain": known[n]} for n in org["name"] if n in known], "meta": {"filters": {}}}
+        if "domain" in org:
+            d = org["domain"][0]
+            ok = "industry" not in body or d in software
+            return {"data": [{"organization": d, "domain": d}] if ok else [],
+                    "meta": {"filters": {k: v for k, v in body.items() if k in ("organization", "industry")}}}
+        return {"data": [], "meta": {"filters": {"industry": {}}}}  # the industry search itself finds nothing here
+    monkeypatch.setattr(ctx.hunter, "discover", discover)
+    ctx.extras["funding_feeds"] = FakeFeeds(clock.now())
+    res = run_search(ctx, DiscoveryFilters(industries=["Software Development"], funding_series=["seed"],
+                                           sources=["hunter_discover", "funding_news"]))
+    c = {x["name"]: x for x in res["candidates"]}
+    a = c["Auditly"]
+    assert a["matches"]["industry"]["status"] == "matched" and a["match_level"] == "strong"
+    b = c["Bigco"]["matches"]["industry"]
+    assert b["status"] == "not_matched" and "outside the selected industry" in b["basis"]
+    rep = {r["source"]: r for r in res["source_reports"]}
+    assert rep["hunter_check"]["found"] == 1 and rep["hunter_check"]["outside_filters"] == 1
+
+
 def test_simulation_makes_no_network_calls(ctx):
     res = run_search(ctx, DiscoveryFilters(funding_series=["seed"], sources=["funding_news", "sec_form_d"]))
     rep = {r["source"]: r for r in res["source_reports"]}

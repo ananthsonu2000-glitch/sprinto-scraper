@@ -64,7 +64,7 @@ def test_cancel_changes_nothing(ctx):
 
 
 def test_search_then_research_results(ctx):
-    r = _ask(ctx, "Find saas companies with 50-200 employees in the US")
+    r = _ask(ctx, "Find companies with 50-200 employees in the US")
     assert r["tools"] == ["search_companies"] and "Found" in r["answer"]
     r = _ask(ctx, "research them")
     [act] = r["actions"]

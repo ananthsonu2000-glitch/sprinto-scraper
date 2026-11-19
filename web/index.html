@@ -810,10 +810,11 @@ function candRow(c){
     <td>${m}<details><summary class="small muted" style="cursor:pointer;margin-top:6px">Why, with sources</summary><div class="small">${why}${ev}</div></details></td></tr>`;
 }
 const SRC_NAME = {hunter_discover: "Hunter", news_search: "AI news search", funding_news: "Funding news",
-  funding_news_lookup: "Funding news by name", sec_form_d: "SEC Form D"};
+  funding_news_lookup: "Funding news by name", sec_form_d: "SEC Form D", hunter_check: "Industry/size checked in Hunter"};
 function srcLine(r){
   const n = SRC_NAME[r.source] || r.source;
   if (!r.ok) return `${esc(n)}: failed (${esc(r.error || "")})`;
+  if (r.source === "hunter_check") return `${esc(n)}: ${r.found} fit, ${r.outside_filters} outside` + (r.not_checked ? `, ${r.not_checked} not checked (${esc(r.error || "")})` : "");
   if (r.checked !== undefined) return `${esc(n)}: ${r.found} of ${r.checked} checked`;
   return `${esc(n)}: ${r.returned ?? 0} found`;
 }

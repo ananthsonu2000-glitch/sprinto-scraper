@@ -503,6 +503,71 @@ def resolve_domain_by_name(ctx, name: str) -> str | None:
     return None
 
 
+HUNTER_CHECKABLE = {"industry": ("industry", lambda f: {"include": f.industries}),
+                    "headcount": ("headcount", lambda f: f.headcount),
+                    "location": ("headquarters_location", lambda f: {"include": [{"country": c} for c in f.countries]})}
+
+
+def hunter_confirm(ctx, f: DiscoveryFilters, cands: list[dict]) -> dict | None:
+    """For companies news or filings found, ask Hunter Discover whether that domain fits the chosen
+    industry / size / location (a free lookup). Matches become 'matched'; a company Hunter has but
+    lists elsewhere becomes 'not_matched'; anything Hunter can't answer stays 'unknown'."""
+    wanted = [k for k, (_, val) in HUNTER_CHECKABLE.items() if val(f)]
+    targets = [c for c in cands if c["domain"] and "hunter_discover" not in c.get("sources", [c["source"]])][:30]
+    if not wanted or not targets:
+        return None
+
+    def ask(domain, keys):
+        body = {"organization": {"domain": [domain]}, "limit": 1}
+        for k in keys:
+            body[HUNTER_CHECKABLE[k][0]] = HUNTER_CHECKABLE[k][1](f)
+        for attempt in range(4):
+            ctx.sleep(0.4 if attempt == 0 else 2.0 * attempt)  # Hunter answers bursts with too_many_requests
+            try:
+                r = ctx.hunter.discover(body)
+                break
+            except IntegrationError as e:
+                if "too_many_requests" not in e.message and "Rate limit" not in e.message or attempt == 3:
+                    raise
+        applied = {HUNTER_FILTER_NAMES.get(x) for x in (r.get("meta") or {}).get("filters") or {}}
+        return bool(r.get("data")), [k for k in keys if k in applied]
+
+    def check(c):
+        try:
+            found, applied = ask(c["domain"], wanted)
+            if found:
+                return c, {k: True for k in applied}, None
+            if len(wanted) == 1:
+                return c, {k: False for k in applied}, None
+            out = {}
+            for k in wanted:  # which filter failed?
+                ok, ap = ask(c["domain"], [k])
+                if k in ap:
+                    out[k] = ok
+            return c, out, None
+        except (IntegrationError, AttributeError) as e:
+            return c, {}, str(getattr(e, "message", e))[:160]
+
+    confirmed = rejected = 0
+    errors = []
+    for c, res, err in map(check, targets):  # one at a time: Hunter rate-limits bursts
+        if err:
+            errors.append(err)
+            continue
+        c["hunter_checked"] = res
+        yes = [k for k, v in res.items() if v]
+        c["provider_filters"] = sorted(set(c["provider_filters"]) | set(yes))
+        confirmed += bool(yes)
+        rejected += any(v is False for v in res.values())
+        if yes:
+            c["evidence"].append({"source": "hunter_discover", "url": None, "title": "Hunter Discover",
+                                  "excerpt": f"Hunter confirms {c['domain']} fits the selected {', '.join(yes)}",
+                                  "published_at": None, "signal": "provider_filter"})
+    return {"source": "hunter_check", "ok": len(errors) < len(targets), "checked": len(targets),
+            "found": confirmed, "outside_filters": rejected, "not_checked": len(errors),
+            **({"error": errors[0]} if errors else {})}
+
+
 # ------------------------------------------------------------------ matching
 
 def evaluate(f: DiscoveryFilters, cand: dict, now: datetime) -> tuple[dict, str]:
@@ -510,9 +575,13 @@ def evaluate(f: DiscoveryFilters, cand: dict, now: datetime) -> tuple[dict, str]
     sig = cand["signals"]
     m: dict = {}
 
+    checked = cand.get("hunter_checked") or {}
+
     def hunter_or_unknown(key, label):
         if key in pf:
             m[key] = {"status": "matched", "basis": f"Hunter Discover applied the {label} filter"}
+        elif checked.get(key) is False:
+            m[key] = {"status": "not_matched", "basis": f"Hunter lists {cand.get('domain')} outside the selected {label}"}
         else:
             m[key] = {"status": "unknown", "basis": "no source confirms this"}
 
@@ -638,6 +707,10 @@ def run_search(ctx, f: DiscoveryFilters) -> dict:
                                       "published_at": None, "signal": "domain"})
     if f.funding_series or f.funded_within_months:
         reports += enrich_funding(ctx, f, merged)
+    if "hunter_discover" in f.sources:
+        hc = hunter_confirm(ctx, f, merged)
+        if hc:
+            reports.append(hc)
     for c in merged:
         c["matches"], c["match_level"] = evaluate(f, c, now)
     merged.sort(key=rank)
