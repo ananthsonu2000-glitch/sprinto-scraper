@@ -5,6 +5,10 @@ Sources
                     hiring, keywords; funding on paid plans). Free call per Hunter docs.
   news_search     - Claude's web search tool over recent news, then a structured
                     extraction step. Every company must be named in a retrieved citation.
+  funding_news    - Google News + Bing News RSS headlines about funding rounds, parsed by
+                    fixed rules (no key, no LLM quota). Finds funded companies and fills in
+                    funding for companies the other sources found.
+  sec_form_d      - SEC EDGAR Form D filings (US private rounds: amount and date, no round name).
 
 Honesty rules (enforced in code)
   * A filter counts as "matched" only with a basis: Hunter actually APPLIED that filter
@@ -34,7 +38,7 @@ FUNDING_SERIES = ["pre_seed", "seed", "pre_series_a", "series_a", "pre_series_b"
 SERIES_LABEL = {"pre_seed": "Pre-seed", "seed": "Seed", "pre_series_a": "Pre-Series A", "series_a": "Series A",
                 "pre_series_b": "Pre-Series B", "series_b": "Series B", "pre_series_c": "Pre-Series C",
                 "series_c+": "Series C or later", "other": "Other"}
-SOURCES = ["hunter_discover", "news_search"]
+SOURCES = ["hunter_discover", "news_search", "funding_news", "sec_form_d"]
 
 
 def industries() -> list[str]:
@@ -292,6 +296,201 @@ def run_news_search(ctx, f: DiscoveryFilters) -> tuple[dict, list[dict]]:
     return report, out
 
 
+# ------------------------------------------------------------------ free funding sources (news RSS, SEC Form D)
+
+SERIES_QUERY = {"pre_seed": '"pre-seed"', "seed": '"seed round" OR "seed funding"', "pre_series_a": '"pre-Series A"',
+                "series_a": '"Series A"', "pre_series_b": '"pre-Series B"', "series_b": '"Series B"',
+                "pre_series_c": '"pre-Series C"', "series_c+": '"Series C" OR "Series D" OR "Series E"',
+                "other": '"funding round"'}
+TOPIC_DROP = {"products", "services", "development", "and", "other", "for", "the", "of", "manufacturing", "activities"}
+
+
+def _feeds(ctx):
+    from .config import Mode
+    from .integrations.funding import FundingFeeds, SimFundingFeeds
+    if "funding_feeds" not in ctx.extras:
+        ctx.extras["funding_feeds"] = SimFundingFeeds() if ctx.settings.mode == Mode.SIMULATION else FundingFeeds()
+    return ctx.extras["funding_feeds"]
+
+
+def funding_window_days(f: DiscoveryFilters) -> int:
+    return int(f.funded_within_months * 30.44) if f.funded_within_months else 365
+
+
+def _topics(f: DiscoveryFilters) -> list[str]:
+    out: list[str] = list(f.keywords)
+    for ind in f.industries:
+        words = [w for w in re.split(r"[\s,/&()]+", ind) if w and w.lower() not in TOPIC_DROP]
+        if words:
+            out.append(" ".join(words[-2:]))
+    seen, uniq = set(), []
+    for t in out:
+        if t.lower() not in seen:
+            seen.add(t.lower())
+            uniq.append(t)
+    return uniq[:3]
+
+
+def funding_queries(f: DiscoveryFilters) -> list[tuple[str, str]]:
+    clause = " OR ".join(SERIES_QUERY[s] for s in f.funding_series) if f.funding_series \
+        else '"funding round" OR "Series A" OR "Series B" OR "seed round"'
+    base = f"(raises OR secures OR raised OR closes) ({clause})"
+    queries = [f"{base} {t}" for t in _topics(f)] or [base]
+    countries = f.countries[:2] or ["US"]
+    return [(q, c) for q in queries for c in countries][:6]
+
+
+def _in_window(date: str | None, days: int, now: datetime) -> bool | None:
+    if not date:
+        return None
+    return datetime.fromisoformat(date).replace(tzinfo=timezone.utc) >= now - timedelta(days=days)
+
+
+def pick_round(rounds: list[dict], f: DiscoveryFilters, now: datetime) -> dict | None:
+    """The round to judge the filter on: one that matches it if any, else the most informative/recent."""
+    if not rounds:
+        return None
+    days = funding_window_days(f) if f.funded_within_months else None
+
+    def score(r):
+        ser = r.get("series")
+        ser_ok = (not f.funding_series) or (ser in f.funding_series)
+        date_ok = True if days is None else bool(_in_window(r.get("date"), days, now))
+        return (ser_ok and date_ok, ser_ok, ser is not None, r.get("date") or "")
+    return max(rounds, key=score)
+
+
+def _news_round(item: dict, parsed: dict) -> dict:
+    return {"series": parsed["series"], "date": item.get("published_at"), "amount": parsed.get("amount"),
+            "source": "funding_news", "source_label": item.get("feed") or "News", "basis": "stated in headline"}
+
+
+def _news_evidence(item: dict) -> dict:
+    return {"source": "funding_news", "url": item.get("url"), "title": item.get("publisher") or item.get("feed"),
+            "excerpt": item["title"], "published_at": item.get("published_at"), "signal": "funding"}
+
+
+def _parallel(fn, args: list, workers: int = 6) -> list:
+    from concurrent.futures import ThreadPoolExecutor
+    if not args:
+        return []
+    with ThreadPoolExecutor(max_workers=min(workers, len(args))) as ex:
+        return list(ex.map(fn, args))
+
+
+def run_funding_news(ctx, f: DiscoveryFilters) -> tuple[dict, list[dict]]:
+    if not (f.funding_series or f.funded_within_months):
+        return {"source": "funding_news", "ok": True, "returned": 0, "note": "Only searched when a funding filter is set."}, []
+    from .integrations.funding import norm_name, parse_headline
+    feeds, now, days = _feeds(ctx), clock.now(), funding_window_days(f)
+    queries = funding_queries(f)
+
+    def fetch(qc):
+        try:
+            return feeds.news(qc[0], days, qc[1]), None
+        except Exception as e:  # noqa: BLE001 - one feed failing must not sink the search
+            return [], f"{type(e).__name__}: {e}"[:200]
+    results = _parallel(fetch, queries)
+    errors = [e for _, e in results if e]
+    if len(errors) == len(results):
+        return {"source": "funding_news", "ok": False, "error": "news feeds unreachable: " + errors[0]}, []
+    groups: dict[str, dict] = {}
+    headlines = 0
+    for items, _ in results:
+        for it in items:
+            headlines += 1
+            if INJECTION_RE.search(it["title"]) or _in_window(it.get("published_at"), days, now) is False:
+                continue
+            p = parse_headline(it["title"])
+            if not p:
+                continue
+            key = norm_name(p["name"])
+            g = groups.setdefault(key, {"name": p["name"], "rounds": [], "evidence": []})
+            g["rounds"].append(_news_round(it, p))
+            if len(g["evidence"]) < 3:
+                g["evidence"].append(_news_evidence(it))
+    out = []
+    for g in groups.values():
+        best = pick_round(g["rounds"], f, now)
+        out.append({"name": g["name"], "domain": None, "source": "funding_news", "provider_filters": [],
+                    "evidence": g["evidence"], "signals": {"funding": best}})
+    # funded companies that fit the filter first, newest first
+    def fits(r):
+        return ((not f.funding_series) or r.get("series") in f.funding_series) and \
+            (not f.funded_within_months or bool(_in_window(r.get("date"), days, now)))
+    out.sort(key=lambda c: (fits(c["signals"]["funding"]), c["signals"]["funding"].get("date") or ""), reverse=True)
+    out = out[:f.max_results]
+    return {"source": "funding_news", "ok": True, "returned": len(out), "headlines": headlines,
+            "queries": [q for q, _ in queries], "errors": errors}, out
+
+
+def enrich_funding(ctx, f: DiscoveryFilters, cands: list[dict]) -> list[dict]:
+    """Look up funding for candidates no source gave a round for: news headlines by name, then SEC Form D."""
+    use_news, use_sec = "funding_news" in f.sources, "sec_form_d" in f.sources
+    targets = [c for c in cands if not c["signals"].get("funding")][:25]
+    reports = []
+    if not targets or not (use_news or use_sec):
+        if use_sec:
+            reports.append({"source": "sec_form_d", "ok": True, "checked": 0, "found": 0,
+                            "note": "Every company already had a funding round from another source."})
+        return reports
+    from .integrations.funding import norm_name, parse_headline
+    feeds, now = _feeds(ctx), clock.now()
+    lookback = max(funding_window_days(f), 730)
+    country = (f.countries or ["US"])[0]
+
+    def lookup(c):
+        rounds, evidence, errs = [], [], []
+        key = norm_name(c["name"])
+        if use_news:
+            try:
+                for it in feeds.news(f'"{c["name"]}" (raises OR raised OR funding OR "Series A" OR "Series B" OR seed)',
+                                     lookback, country):
+                    p = parse_headline(it["title"], strict=True)
+                    if p and norm_name(p["name"]) == key and not INJECTION_RE.search(it["title"]):
+                        rounds.append(_news_round(it, p))
+                        if len(evidence) < 3:
+                            evidence.append(_news_evidence(it))
+            except Exception as e:  # noqa: BLE001
+                errs.append(("funding_news", f"{type(e).__name__}: {e}"[:160]))
+        sec_hit = False
+        if use_sec:
+            try:
+                for d in feeds.form_d(c["name"]):
+                    sec_hit = True
+                    rounds.append({"series": None, "date": d["filed_at"], "amount": d.get("amount"), "source": "sec_form_d",
+                                   "source_label": "SEC Form D", "basis": "stated in an SEC filing"})
+                    evidence.append({"source": "sec_form_d", "url": d["url"], "title": f"SEC Form D: {d['legal_name']}",
+                                     "excerpt": f"{d['legal_name']} ({d.get('location') or 'US'}) filed Form D on {d['filed_at']}"
+                                                + (f"; total amount sold {d['amount']}" if d.get("amount") else ""),
+                                     "published_at": d["filed_at"], "signal": "funding"})
+            except Exception as e:  # noqa: BLE001
+                errs.append(("sec_form_d", f"{type(e).__name__}: {e}"[:160]))
+        return c, rounds, evidence, errs, sec_hit
+
+    found_news = found_sec = 0
+    errors: dict[str, list[str]] = {"funding_news": [], "sec_form_d": []}
+    for c, rounds, evidence, errs, sec_hit in _parallel(lookup, targets, workers=5):
+        for src, e in errs:
+            errors[src].append(e)
+        if rounds:
+            c["signals"]["funding"] = pick_round(rounds, f, now)
+            c["evidence"] = c["evidence"] + evidence
+            c["sources"] = sorted(set(c.get("sources", [])) | {r["source"] for r in rounds})
+            found_news += any(r["source"] == "funding_news" for r in rounds)
+            found_sec += sec_hit
+    if use_news:
+        reports.append({"source": "funding_news_lookup", "ok": len(errors["funding_news"]) < len(targets),
+                        "checked": len(targets), "found": found_news,
+                        **({"error": errors["funding_news"][0]} if len(errors["funding_news"]) == len(targets) else {})})
+    if use_sec:
+        reports.append({"source": "sec_form_d", "ok": len(errors["sec_form_d"]) < len(targets),
+                        "checked": len(targets), "found": found_sec,
+                        "note": "US companies only; a filing states the amount and date, not the round name.",
+                        **({"error": errors["sec_form_d"][0]} if len(errors["sec_form_d"]) == len(targets) else {})})
+    return reports
+
+
 def resolve_domain_by_name(ctx, name: str) -> str | None:
     """Free Hunter Discover lookup by exact organization name. Never guesses."""
     try:
@@ -328,20 +527,26 @@ def evaluate(f: DiscoveryFilters, cand: dict, now: datetime) -> tuple[dict, str]
         if "funding" in pf:
             m["funding"] = {"status": "matched", "basis": "Hunter Discover applied the funding filter"}
         elif fund:
-            ok_series = (not f.funding_series) or fund["series"] in f.funding_series
+            series = fund.get("series")
+            # a round with no stated name (e.g. an SEC filing) can't confirm or contradict a series filter
+            ok_series = True if not f.funding_series else (series in f.funding_series if series else None)
             ok_date = True
             if f.funded_within_months and fund.get("date"):
                 dt = datetime.fromisoformat(fund["date"]).replace(tzinfo=timezone.utc)
                 ok_date = dt >= now - timedelta(days=int(f.funded_within_months * 30.44))
             elif f.funded_within_months and not fund.get("date"):
                 ok_date = None
-            label = f"{SERIES_LABEL[fund['series']]}" + (f" on {fund['date']}" if fund.get("date") else " (date not stated)")
+            src = fund.get("source_label") or "News"
+            label = (SERIES_LABEL.get(series, series) if series else "Funding round") + \
+                (f" of {fund['amount']}" if fund.get("amount") else "") + \
+                (f" on {fund['date']}" if fund.get("date") else " (date not stated)")
             if ok_series and ok_date:
-                m["funding"] = {"status": "matched", "basis": f"News: {label}"}
+                m["funding"] = {"status": "matched", "basis": f"{src}: {label}"}
             elif ok_series is False or ok_date is False:
-                m["funding"] = {"status": "not_matched", "basis": f"News: {label}"}
+                m["funding"] = {"status": "not_matched", "basis": f"{src}: {label}"}
             else:
-                m["funding"] = {"status": "unknown", "basis": f"News: {label}; date needed for the time window"}
+                why = "round name not stated" if ok_series is None else "date needed for the time window"
+                m["funding"] = {"status": "unknown", "basis": f"{src}: {label}; {why}"}
         else:
             m["funding"] = {"status": "unknown", "basis": "no source states a funding round"}
     if f.hiring_roles:
@@ -401,6 +606,13 @@ def _merge(cands: list[dict]) -> list[dict]:
 ORDER = {"strong": 0, "partial": 1, "needs_domain": 2, "excluded": 3}
 
 
+def rank(c: dict) -> tuple:
+    """Best match first; within a level, a confirmed funding round before one that is only unknown."""
+    m = c["matches"]
+    return (ORDER[c["match_level"]], (m.get("funding") or {}).get("status") != "matched",
+            -sum(v["status"] == "matched" for v in m.values()))
+
+
 def run_search(ctx, f: DiscoveryFilters) -> dict:
     now = clock.now()
     reports, cands = [], []
@@ -412,6 +624,10 @@ def run_search(ctx, f: DiscoveryFilters) -> dict:
         r, c = run_news_search(ctx, f)
         reports.append(r)
         cands += c
+    if "funding_news" in f.sources:
+        r, c = run_funding_news(ctx, f)
+        reports.append(r)
+        cands += c
     merged = _merge(cands)
     for c in merged:
         if not c["domain"]:
@@ -420,8 +636,11 @@ def run_search(ctx, f: DiscoveryFilters) -> dict:
                 c["evidence"].append({"source": "hunter_discover", "url": None, "title": "Hunter Discover",
                                       "excerpt": f"Domain resolved by exact company-name lookup: {c['name']} -> {c['domain']}",
                                       "published_at": None, "signal": "domain"})
+    if f.funding_series or f.funded_within_months:
+        reports += enrich_funding(ctx, f, merged)
+    for c in merged:
         c["matches"], c["match_level"] = evaluate(f, c, now)
-    merged.sort(key=lambda c: (ORDER[c["match_level"]], -sum(v["status"] == "matched" for v in c["matches"].values())))
+    merged.sort(key=rank)
     status = "completed" if all(r["ok"] for r in reports) else ("partial" if any(r["ok"] for r in reports) else "failed")
     sid = store.new_id("disc")
     ts = clock.iso(now)
@@ -454,7 +673,7 @@ def get_search(ctx, sid: str) -> dict:
         for k in ("sources", "evidence", "signals", "matches"):
             d[k] = json.loads(d[k])
         cands.append(d)
-    cands.sort(key=lambda c: (ORDER[c["match_level"]], -sum(v["status"] == "matched" for v in c["matches"].values())))
+    cands.sort(key=rank)
     out["candidates"] = cands
     return out
 

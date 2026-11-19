@@ -153,7 +153,7 @@ def test_missing_keys_report_setup_required(ctx):
     from sprinto_agent.context import UnconfiguredHunter, UnconfiguredLLM
     ctx.hunter = UnconfiguredHunter()
     ctx.llm = UnconfiguredLLM("ANTHROPIC_API_KEY is not set")
-    res = run_search(ctx, DiscoveryFilters(**ICP))
+    res = run_search(ctx, DiscoveryFilters(**ICP, sources=["hunter_discover", "news_search"]))
     assert res["status"] == "failed" and res["candidates"] == []
     assert all("setup_required" in r["error"] for r in res["source_reports"])
 

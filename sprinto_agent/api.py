@@ -252,7 +252,9 @@ def discovery_options():
         return {"industries": dz.industries(), "headcount": dz.HEADCOUNT_RANGES,
                 "funding_series": [{"id": k, "label": v} for k, v in dz.SERIES_LABEL.items()],
                 "sources": [{"id": "hunter_discover", "label": c.hunter.label + " — Discover"},
-                            {"id": "news_search", "label": "News & web search via " + c.llm.label}]}
+                            {"id": "news_search", "label": "News & web search via " + c.llm.label},
+                            {"id": "funding_news", "label": "Funding news: " + dz._feeds(c).label},
+                            {"id": "sec_form_d", "label": dz._feeds(c).sec_label}]}
 
 
 @app.post("/api/discovery/search")

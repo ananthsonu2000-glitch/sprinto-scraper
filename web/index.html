@@ -809,12 +809,32 @@ function candRow(c){
     <td>${tag(LEVEL[c.match_level] || c.match_level, c.match_level === "strong" ? "ok" : c.match_level === "excluded" ? "bad" : "warn")}</td>
     <td>${m}<details><summary class="small muted" style="cursor:pointer;margin-top:6px">Why, with sources</summary><div class="small">${why}${ev}</div></details></td></tr>`;
 }
+const SRC_NAME = {hunter_discover: "Hunter", news_search: "AI news search", funding_news: "Funding news",
+  funding_news_lookup: "Funding news by name", sec_form_d: "SEC Form D"};
+function srcLine(r){
+  const n = SRC_NAME[r.source] || r.source;
+  if (!r.ok) return `${esc(n)}: failed (${esc(r.error || "")})`;
+  if (r.checked !== undefined) return `${esc(n)}: ${r.found} of ${r.checked} checked`;
+  return `${esc(n)}: ${r.returned ?? 0} found`;
+}
+function fundingNote(s){
+  const f = s.filters || {};
+  if (!((f.funding_series || []).length || f.funded_within_months)) return "";
+  const c = s.candidates, ok = c.filter(x => x.matches.funding && x.matches.funding.status === "matched").length;
+  const stated = c.filter(x => x.matches.funding && /Form D|round name not stated/.test(x.matches.funding.basis) && x.matches.funding.status === "unknown").length;
+  const hunter = s.source_reports.find(r => r.source === "hunter_discover" && (r.ignored_filters || []).includes("funding"));
+  return `<p class="small" style="margin:8px 0 14px;padding:10px 12px;border-radius:10px;background:var(--raised-2)">
+    <b>Funding confirmed for ${plural(ok, "company", "companies")}</b> from news headlines and SEC filings, each with its source under "Why, with sources".
+    ${stated ? `${plural(stated, "company has", "companies have")} a stated round without a round name (e.g. an SEC filing), so the series can't be confirmed.` : ""}
+    ${hunter ? `Hunter's plan ignores the funding filter, so companies only Hunter found show funding as unknown unless news or a filing names a round.` : ""}</p>`;
+}
 function paintDisc(){
   const s = S.disc.search, out = $("#discOut"); if (!s || !out) return;
   const good = s.candidates.filter(c => c.match_level !== "excluded"), bad = s.candidates.filter(c => c.match_level === "excluded");
   const head = `<table><thead><tr><th></th><th>Company</th><th>Match</th><th>Filters</th></tr></thead><tbody>`;
   out.innerHTML = `<section class="panel"><div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:baseline"><h2>${plural(good.length, "company", "companies")} found</h2>
-      <span class="small muted">${s.source_reports.map(r => `${esc(r.source)}: ${r.ok ? r.returned + " found" : "failed (" + esc(r.error) + ")"}`).join(" · ")}</span></div>
+      <span class="small muted">${s.source_reports.map(srcLine).join(" · ")}</span></div>
+    ${fundingNote(s)}
     ${good.length ? head + good.map(candRow).join("") + `</tbody></table>` : `<p class="muted">No matching companies. Try fewer filters.</p>`}
     ${bad.length ? `<details style="margin-top:10px"><summary class="small muted" style="cursor:pointer">${bad.length} excluded because a source contradicts a filter</summary>${head}${bad.map(candRow).join("")}</tbody></table></details>` : ""}
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px"><button class="btn" onclick="addSelected()">Research the selected companies</button>
