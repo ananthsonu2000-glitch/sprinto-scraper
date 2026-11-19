@@ -58,17 +58,30 @@ def _sign(ctx):
 def _send_reply(ctx, p: dict, st: ReplyState, action: str, purpose: str, body: str) -> tuple[dict, bool]:
     op_id = f"reply:{p['gmail_thread_id']}:{st['provider_message_id']}:{action}"
     subject = "Re: " + (p.get("draft") or {}).get("subject", "Sprinto")
+    if ctx.settings.require_approval:
+        from . import outbox
+        c = st.get("classification") or {}
+        outbox.queue(ctx, p, op_id, purpose, subject, body,
+                     {"action": action, "in_reply_to": st.get("provider_message_id"),
+                      "their_message": (st.get("body") or "")[:600], "intent": c.get("intent")})
+        return store.get_prospect(ctx.conn, p["id"]), True
+    ok, _ = deliver_reply(ctx, p, op_id, purpose, subject, body, action)
+    return store.get_prospect(ctx.conn, p["id"]), ok
+
+
+def deliver_reply(ctx, p: dict, op_id: str, purpose: str, subject: str, body: str,
+                  action: str | None = None) -> tuple[bool, str | None]:
     res = run_tool(ctx, "send_email", {"prospect_id": p["id"], "op_id": op_id, "purpose": purpose,
-                                       "subject": subject, "body": body}, reason=f"reply action: {action}")
+                                       "subject": subject, "body": body}, reason=f"reply action: {action or purpose}")
     p = store.get_prospect(ctx.conn, p["id"])
     if not res.ok:
         reason = "SEND_UNCERTAIN" if res.error_kind == ErrorKind.UNCERTAIN else "SEND_FAILED"
-        store.open_escalation(ctx.conn, p, reason, f"{action}: {res.error_kind}: {res.error}")
-        return store.get_prospect(ctx.conn, p["id"]), False
+        store.open_escalation(ctx.conn, p, reason, f"{action or purpose}: {res.error_kind}: {res.error}")
+        return False, f"{res.error_kind}: {res.error}"
     deadline = clock.now() + timedelta(hours=ctx.settings.no_reply_handoff_hours)
-    p = store.save_prospect(ctx.conn, p, outbound_message_ids=list(dict.fromkeys(p["outbound_message_ids"] + [res.data["provider_message_id"]])),
-                            reply_deadline=clock.iso(deadline))
-    return p, True
+    store.save_prospect(ctx.conn, p, outbound_message_ids=list(dict.fromkeys(p["outbound_message_ids"] + [res.data["provider_message_id"]])),
+                        reply_deadline=clock.iso(deadline))
+    return True, None
 
 
 def _busy(ctx, p, start, end) -> list | None:

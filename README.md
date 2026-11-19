@@ -126,6 +126,20 @@ are rendered, so certification wording such as "SOC 2 Type II" and "ISO 27001:20
 captured as evidence. Trust centres on subdomains (such as `trust.<company>.com`) are
 selected as security pages.
 
+## Dashboard and the approval gate
+
+The dashboard opens on an **Overview**: the funnel (added → researched → qualified → contact found →
+email written → sent → replied → meeting booked), where every step is clickable and opens the
+pipeline filtered to the companies that reached it, plus what needs you right now. The left sidebar
+holds Find companies, Pipeline, Companies, **Approvals**, **Emails** (every thread with a side panel:
+what happened so far, who the contact is, why we wrote, and the next action) and Needs you.
+
+**Every outgoing email waits for approval** (`REQUIRE_APPROVAL=true`, the default): the first email
+and every reply the agent drafts land in Approvals, where you can edit, approve and send, ask for a new
+draft or discard. Approval uses the same send path, idempotency key and delivery guard as before, so
+mail still only ever reaches `DEMO_RECIPIENT_EMAIL`. Set `REQUIRE_APPROVAL=false` for fully automatic
+sending.
+
 ## Deploy on Vercel (live)
 
 The repo deploys as-is to Vercel (`api/index.py` + `vercel.json`, Python runtime). It runs the

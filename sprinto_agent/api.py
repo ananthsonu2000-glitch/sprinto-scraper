@@ -152,14 +152,23 @@ SUMMARY_COLS = ("id, campaign_id, normalized_domain, mode, stage, terminal_statu
 
 @app.get("/api/prospects")
 def prospects(campaign_id: str | None = None):
+    from . import conversation
     with LOCK:
         c = ctx()
-        q = f"SELECT {SUMMARY_COLS} FROM prospects" + (" WHERE campaign_id=?" if campaign_id else "") + " ORDER BY created_at"
-        rows = c.conn.execute(q, (campaign_id,) if campaign_id else ()).fetchall()
+        q = "SELECT * FROM prospects" + (" WHERE campaign_id=?" if campaign_id else "") + " ORDER BY created_at"
+        inbound = {r[0]: r[1] for r in c.conn.execute(
+            "SELECT prospect_id, COUNT(*) FROM messages WHERE direction='inbound' GROUP BY prospect_id")}
+        pending = {r[0]: r[1] for r in c.conn.execute(
+            "SELECT prospect_id, COUNT(*) FROM outbox WHERE status='pending' GROUP BY prospect_id")}
         out = []
-        for r in rows:
-            d = store.row_to_dict(r)
-            d["contact_name"] = (d.pop("contact") or {}).get("name")
+        for r in c.conn.execute(q, (campaign_id,) if campaign_id else ()).fetchall():
+            p = store.row_to_dict(r)
+            d = {k: p[k] for k in SUMMARY_COLS.replace(" ", "").split(",") if k != "contact"}
+            ct = p.get("contact") or {}
+            d.update(contact_name=ct.get("name"), contact_title=ct.get("title"), company=conversation._company(p),
+                     reached=sorted(conversation._reached(p, inbound.get(p["id"], 0))),
+                     pending_approval=pending.get(p["id"], 0), created_at=p["created_at"],
+                     last_error=p.get("last_error"))
             out.append(d)
         return out
 
@@ -295,6 +304,74 @@ def discovery_add(sid: str, body: AddIn):
     from . import discovery as dz
     with LOCK:
         return dz.add_to_run(ctx(), sid, body.candidate_ids, body.name)
+
+
+# ------------------------------------------------------------------ overview, inbox, approvals
+
+class OutboxEditIn(BaseModel):
+    subject: str | None = None
+    body: str | None = None
+    note: str = ""
+    redraft: bool = False
+
+
+@app.get("/api/overview")
+def overview_api():
+    from . import conversation
+    with LOCK:
+        c = ctx()
+        return conversation.funnel(c) | {"mode": c.settings.mode, "require_approval": c.settings.require_approval}
+
+
+@app.get("/api/threads")
+def threads_api():
+    from . import conversation
+    with LOCK:
+        return conversation.threads(ctx())
+
+
+@app.get("/api/threads/{pid}")
+def thread_api(pid: str):
+    from . import conversation, outbox
+    with LOCK:
+        c = ctx()
+        try:
+            ov = conversation.overview(c, pid)
+        except KeyError:
+            raise HTTPException(404)
+        return {"overview": ov, "messages": store.list_messages(c.conn, pid),
+                "outbox": outbox.listing(c.conn, None, pid)}
+
+
+@app.get("/api/outbox")
+def outbox_list(status: str = "pending"):
+    from . import outbox
+    with LOCK:
+        return outbox.listing(ctx().conn, None if status == "all" else status)
+
+
+def _outbox_call(fn):
+    from . import outbox
+    with LOCK:
+        try:
+            return fn(outbox, ctx())
+        except outbox.OutboxError as e:
+            raise HTTPException(400, str(e))
+
+
+@app.post("/api/outbox/{oid}/approve")
+def outbox_approve(oid: str, body: OutboxEditIn):
+    return _outbox_call(lambda ob, c: ob.approve(c, oid, body.subject, body.body, body.note))
+
+
+@app.post("/api/outbox/{oid}/save")
+def outbox_save(oid: str, body: OutboxEditIn):
+    return _outbox_call(lambda ob, c: ob.save(c, oid, body.subject, body.body))
+
+
+@app.post("/api/outbox/{oid}/discard")
+def outbox_discard(oid: str, body: OutboxEditIn):
+    return _outbox_call(lambda ob, c: ob.discard(c, oid, body.note, body.redraft))
 
 
 @app.get("/api/activity")

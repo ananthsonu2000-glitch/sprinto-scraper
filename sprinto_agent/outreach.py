@@ -22,15 +22,34 @@ log = logging.getLogger(__name__)
 MAX_LLM_BUSY_TICKS = 3
 
 
+def _initial_op_id(p: dict) -> str:
+    op_id = f"outreach:{p['campaign_id']}:{p['normalized_domain']}"
+    if (p.get("contact") or {}).get("via_referral"):
+        op_id += ":referral:" + p["contact"]["name"].lower().replace(" ", "-")
+    redrafts = int((p.get("tool_attempts") or {}).get("redrafts", 0))
+    return op_id + (f":v{redrafts + 1}" if redrafts else "")
+
+
 def send_initial(ctx, p: dict) -> dict:
     if p["suppressed"]:
         return store.save_prospect(ctx.conn, p, stage=Stage.DONE, terminal_status="OPTED_OUT")
     d = p["draft"]
-    op_id = f"outreach:{p['campaign_id']}:{p['normalized_domain']}"
-    if (p.get("contact") or {}).get("via_referral"):
-        op_id += ":referral:" + p["contact"]["name"].lower().replace(" ", "-")
+    op_id = _initial_op_id(p)
+    if ctx.settings.require_approval:
+        from . import outbox
+        outbox.queue(ctx, p, op_id, "initial_outreach", d["subject"], d["body"],
+                     {"qa_score": (p.get("email_qa") or {}).get("score"), "claims": len(d.get("claims") or [])})
+        return store.save_prospect(ctx.conn, store.get_prospect(ctx.conn, p["id"]), stage=Stage.AWAITING_APPROVAL)
+    deliver_initial(ctx, p, op_id, d["subject"], d["body"])
+    return store.get_prospect(ctx.conn, p["id"])
+
+
+def deliver_initial(ctx, p: dict, op_id: str, subject: str, body: str) -> tuple[bool, str | None]:
+    """Send the first email (directly, or after human approval) and move to AWAITING_REPLY."""
+    if p["draft"] and (subject != p["draft"].get("subject") or body != p["draft"].get("body")):
+        p = store.save_prospect(ctx.conn, p, draft={**p["draft"], "subject": subject, "body": body, "edited_by_human": True})
     res = run_tool(ctx, "send_email", {"prospect_id": p["id"], "op_id": op_id, "purpose": "initial_outreach",
-                                       "subject": d["subject"], "body": d["body"]}, reason="initial outreach after QA pass")
+                                       "subject": subject, "body": body}, reason="initial outreach after QA pass")
     p = store.get_prospect(ctx.conn, p["id"])
     if not res.ok:
         if res.error_kind == ErrorKind.UNCERTAIN:
@@ -40,7 +59,7 @@ def send_initial(ctx, p: dict) -> dict:
             store.open_escalation(ctx.conn, p, "SETUP_REQUIRED", f"Email delivery unavailable: {res.error}")
         else:
             store.open_escalation(ctx.conn, p, "SEND_FAILED", f"{res.error_kind}: {res.error}")
-        return store.get_prospect(ctx.conn, p["id"])
+        return False, f"{res.error_kind}: {res.error}"
     deadline = clock.now() + timedelta(hours=ctx.settings.no_reply_handoff_hours)
     p = store.save_prospect(ctx.conn, p, gmail_thread_id=res.data["thread_id"],
                             outbound_message_ids=list(dict.fromkeys(p["outbound_message_ids"] + [res.data["provider_message_id"]])),
@@ -48,7 +67,8 @@ def send_initial(ctx, p: dict) -> dict:
                             reply_deadline=clock.iso(deadline))
     run_tool(ctx, "update_crm", {"prospect_id": p["id"], "outcome": "OUTREACH_SENT",
                                  "note": f"{res.data['delivery_label']} to demo address; thread {res.data['thread_id']}"})
-    return store.save_prospect(ctx.conn, store.get_prospect(ctx.conn, p["id"]), crm_logged=1)
+    store.save_prospect(ctx.conn, store.get_prospect(ctx.conn, p["id"]), crm_logged=1)
+    return True, None
 
 
 STAGE_HANDLERS = {

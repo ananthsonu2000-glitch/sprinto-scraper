@@ -83,6 +83,7 @@ class Settings:
     fetch_max_bytes: int = 2_000_000
     worker_poll_seconds: int = 60
     embedded_worker: bool = False
+    require_approval: bool = False  # every outgoing email waits for a person (on by default via env)
     fixtures_dir: str = str(FIXTURES_DIR)
     retry_backoff_override: list[float] | None = None  # tests set [0, 0]
 
@@ -125,6 +126,7 @@ class Settings:
             fetch_max_bytes=int(e("FETCH_MAX_BYTES") or 2_000_000),
             worker_poll_seconds=int(e("WORKER_POLL_SECONDS") or 60),
             embedded_worker=_bool(e("EMBEDDED_WORKER")),
+            require_approval=_bool(e("REQUIRE_APPROVAL"), default=True),
         )
         for k, v in overrides.items():
             setattr(s, k, v)
@@ -177,6 +179,7 @@ class Settings:
             "meeting_minutes": self.meeting_minutes,
             "booking_horizon_days": self.booking_horizon_days,
             "no_reply_handoff_hours": self.no_reply_handoff_hours,
+            "require_approval": self.require_approval,
         }
 
 

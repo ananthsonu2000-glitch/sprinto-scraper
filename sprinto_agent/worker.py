@@ -98,7 +98,8 @@ class Worker:
         due = [r["id"] for r in c.execute(
             "SELECT id FROM prospects WHERE stage IN (?,?) AND reply_deadline IS NOT NULL AND reply_deadline < ? "
             "AND reply_status NOT IN ('MEETING_BOOKED') AND NOT EXISTS (SELECT 1 FROM messages m WHERE "
-            "m.prospect_id=prospects.id AND m.direction='inbound' AND m.processing_status IN ('pending','processing'))",
+            "m.prospect_id=prospects.id AND m.direction='inbound' AND m.processing_status IN ('pending','processing')) "
+            "AND NOT EXISTS (SELECT 1 FROM outbox o WHERE o.prospect_id=prospects.id AND o.status='pending')",
             (*Stage.CONVERSATION, now))]
         for pid in due:
             def fire(pid=pid):
