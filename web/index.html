@@ -373,7 +373,8 @@ async function api(path, opts = {}) {
 }
 const post = (path, body = {}) => api(path, {method: "POST", body: JSON.stringify(body)});
 function toast(msg){ const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(t._h); t._h = setTimeout(() => t.hidden = true, 3200); }
-const S = {status: null, ov: null, route: "", busy: false, disc: {search: null, f: {industries: [], headcount: [], funding_series: [], funded_within_months: null}}, tab: "evidence"};
+const emptyFilters = () => ({industries: [], headcount: [], funding_series: [], funded_within_months: null});
+const S = {status: null, ov: null, route: "", busy: false, disc: {search: null, f: emptyFilters()}, tab: "evidence"};
 
 // ---------- formatting
 const STAGE = {QUEUED:"Queued", RESEARCHING:"Researching", QUALIFIED:"Qualified", CONTACT_SELECTED:"Contact found", PAIN_READY:"Writing email",
@@ -753,6 +754,7 @@ async function vFind(){
       and mentioning <span class="pill ${f.kw ? "set" : ""}"><input id="fKw" placeholder="any keyword" value="${esc(f.kw || "")}" size="14" aria-label="Keywords"></span>.</div>
     <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:24px">
       <button class="btn" id="searchBtn">Search</button>
+      <button class="btn ghost" id="clearBtn" title="Clear every filter and the results to start a new search">Clear all</button>
       ${o.sources.map(s => `<label class="small"><input type="checkbox" class="src" value="${esc(s.id)}" ${(!f.sources || f.sources.includes(s.id)) ? "checked" : ""} style="width:auto;accent-color:var(--accent)"> ${esc(s.label)}</label>`).join("")}
       <label class="small"><input type="checkbox" id="exclNC" ${f.excl === false ? "" : "checked"} style="width:auto;accent-color:var(--accent)"> Skip universities, government and non-profits</label>
       <span class="small muted" id="searchMsg"></span>
@@ -764,6 +766,7 @@ async function vFind(){
   const keep = () => { f.countries = $("#fCountries").value; f.hiring = $("#fHiring").value; f.nrr = $("#fNrr").value; f.kw = $("#fKw").value;
     f.sources = $$(".src:checked").map(i => i.value); f.excl = $("#exclNC").checked; };
   $$("[data-pop]").forEach(b => b.onclick = e => { e.stopPropagation(); keep(); openPop(b); });
+  $("#clearBtn").onclick = () => { S.disc.f = emptyFilters(); S.disc.search = null; vFind(); toast("Filters cleared. Past searches are still under Recent searches."); };
   $("#searchBtn").onclick = async () => { keep(); const csv = s => (s || "").split(",").map(x => x.trim()).filter(Boolean);
     const body = {industries: f.industries, headcount: f.headcount, funding_series: f.funding_series, funded_within_months: f.funded_within_months,
       countries: csv(f.countries), hiring_roles: csv(f.hiring), nrr_min_percent: f.nrr ? +f.nrr : null, keywords: csv(f.kw),
