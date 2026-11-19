@@ -402,3 +402,104 @@ class SimulatedLLM:
         if re.search(r"soc|iso|framework|prepar|audit", q) or not ids:
             ids.append("compliance_preparation")
         return InfoAnswer(capability_ids=ids, unanswerable=False, reason="matched approved capabilities")
+
+
+# ---------------------------------------------------------------- project assistant (rule-based)
+import json as _json  # noqa: E402
+
+from ..schemas import AssistantStep, FollowUpDraft  # noqa: E402
+
+_OFF = re.compile(r"\b(weather|joke|recipe|poem|song|lyrics|capital of|president|prime minister|football|cricket|movie|"
+                  r"bitcoin|crypto|translate|horoscope|write (me )?(a|some) (code|essay|story))\b")
+_PROJECT = re.compile(r"compan|deal|lead|prospect|e-?mail|mail|repl|meeting|run|pipeline|approv|research|search|find|"
+                      r"follow|status|contact|paused|attention|urgent|pending|agent|funnel|qualif|score|outreach|send|"
+                      r"discard|draft|sprinto|thread|inbox|hunter|discover|book|calendar|activity|what happened|update")
+_GREET = re.compile(r"^\s*(hi|hello|hey|yo|good (morning|afternoon|evening))\b")
+_KW = {"saas", "fintech", "healthtech", "payroll", "hr", "security", "cybersecurity", "ai", "analytics", "edtech",
+       "insurtech", "logistics", "ecommerce", "b2b", "crm", "devtools", "compliance", "payments", "banking", "health"}
+_COUNTRIES = {"us": "US", "usa": "US", "united states": "US", "uk": "GB", "united kingdom": "GB", "india": "IN",
+              "germany": "DE", "france": "FR", "canada": "CA", "australia": "AU", "singapore": "SG"}
+
+
+def _headcount(low):
+    m = re.search(r"(\d+)\s*(?:-|to)\s*(\d+)\s*(?:people|employees|staff)?", low)
+    if not m:
+        return []
+    lo, hi = int(m.group(1)), int(m.group(2))
+    out = []
+    for r in ["1-10", "11-50", "51-200", "201-500", "501-1000", "1001-5000", "5001-10000"]:
+        a, b = map(int, r.split("-"))
+        if b >= lo and a <= hi:
+            out.append(r)
+    return out
+
+
+def route_assistant(ctx) -> AssistantStep:
+    """Keyword router used offline (simulation, tests) and when the AI quota is used up."""
+    if ctx.get("tool_results"):
+        return AssistantStep(on_topic=True, tool=None, answer=None)
+    msg = ctx["user_message"]
+    low = msg.lower()
+    comp = None
+    for k in ctx.get("known_companies", []):
+        keys = [k["company"].lower(), k["domain"].lower(), k["domain"].split(".")[0].lower(), (k.get("contact") or "").lower()]
+        if any(x and len(x) > 2 and x in low for x in keys):
+            comp = k["company"]
+            break
+    if _OFF.search(low) or not (_PROJECT.search(low) or comp or _GREET.search(low)):
+        return AssistantStep(on_topic=False)
+
+    def mk(tool, **args):
+        return AssistantStep(on_topic=True, tool=tool, args_json=_json.dumps(args))
+    domains = re.findall(r"\b(?:[a-z0-9-]+\.)+(?:com|io|ai|co|net|org|app|dev|example|in|uk|de)\b", low)
+    if re.search(r"follow[ -]?up|nudge|chase", low) and comp:
+        return mk("draft_follow_up", company=comp, instructions=msg)
+    if re.search(r"\b(send|approve)\b", low) and comp:
+        return mk("approve_email", company=comp)
+    if re.search(r"\b(discard|reject|drop|redraft|rewrite)\b", low) and comp:
+        return mk("discard_email", company=comp, redraft=bool(re.search(r"redraft|rewrite|new draft", low)))
+    if re.search(r"\b(resume|unpause|close)\b", low) and comp:
+        return mk("resolve_paused", company=comp, action="close" if "close" in low else "resume")
+    if domains and re.search(r"research|add|start|run|look into|prospect", low):
+        return mk("start_research", domains=domains)
+    if re.search(r"(research|add|start) (them|all|those|these)|research the (results|companies)", low):
+        return mk("add_search_results", search_id="latest", companies=["all"])
+    if re.search(r"\b(find|search|look for|discover)\b", low):
+        countries = sorted({v for k, v in _COUNTRIES.items() if re.search(rf"\b{k}\b", low)})
+        series = [s for s, pat in (("seed", r"\bseed\b"), ("series_a", r"series a\b"), ("series_b", r"series b\b"),
+                                   ("series_c+", r"series c")) if re.search(pat, low)]
+        kws = sorted({w for w in re.findall(r"[a-z]+", low) if w in _KW})
+        return mk("search_companies", headcount=_headcount(low), funding_series=series, countries=countries, keywords=kws)
+    if re.search(r"run (the )?agent|run (it )?now|\btick\b|process (everything|now)", low):
+        return mk("run_agent_now")
+    if re.search(r"last run|when did|latest run|\bran\b", low):
+        return mk("runs")
+    if re.search(r"attention|urgent|need(s)? (me|my|you)|to ?do|what should i|priorit|immediate", low):
+        return mk("needs_attention")
+    if re.search(r"approv|waiting email|pending email", low):
+        return mk("pending_approvals")
+    if comp:
+        return mk("company_details", company=comp)
+    if re.search(r"activity|log|recent|today", low):
+        return mk("recent_activity")
+    if re.search(r"list|which compan|all compan|how many|companies", low):
+        return mk("list_companies")
+    return mk("overview")
+
+
+def _assistant_step(self, ctx):
+    return route_assistant(ctx)
+
+
+def _assistant_follow_up(self, ctx):
+    first = ctx.get("contact_first_name") or "there"
+    subj = ctx.get("original_subject") or "my earlier note"
+    return FollowUpDraft(subject="Re: " + subj,
+                         body=f"Hi {first},\n\nI wanted to follow up on my earlier note in case it got buried. "
+                              "Happy to keep it short and focused on how you handle audit evidence today.\n\n"
+                              "Would a 20-minute call next week work for you?\n\n"
+                              f"Best,\n{ctx.get('sender_name') or 'Demo Sender'}")
+
+
+SimulatedLLM._assistant_step = _assistant_step
+SimulatedLLM._assistant_follow_up = _assistant_follow_up

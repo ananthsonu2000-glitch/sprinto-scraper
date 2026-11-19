@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import socket
@@ -110,6 +111,8 @@ class Worker:
                     return True
             if self._with_lease(pid, fire):
                 stats["deadlines"] += 1
+        c.execute("INSERT INTO app_state(key,value,updated_at) VALUES ('last_tick',?,?) ON CONFLICT(key) DO UPDATE "
+                  "SET value=excluded.value, updated_at=excluded.updated_at", (json.dumps(stats), now))
         return stats
 
     def run_forever(self):

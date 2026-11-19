@@ -374,6 +374,42 @@ def outbox_discard(oid: str, body: OutboxEditIn):
     return _outbox_call(lambda ob, c: ob.discard(c, oid, body.note, body.redraft))
 
 
+# ------------------------------------------------------------------ project assistant
+
+class AskIn(BaseModel):
+    conversation_id: str = "default"
+    message: str
+
+
+@app.post("/api/assistant")
+def assistant_ask(body: AskIn):
+    from . import assistant
+    with LOCK:
+        try:
+            return assistant.ask(ctx(), body.conversation_id[:64], body.message)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+
+
+@app.get("/api/assistant/{conv}")
+def assistant_history(conv: str):
+    from . import assistant
+    with LOCK:
+        return assistant.history(ctx().conn, conv[:64])
+
+
+@app.post("/api/assistant/actions/{aid}/{decision}")
+def assistant_decide(aid: str, decision: str):
+    from . import assistant
+    if decision not in ("confirm", "cancel"):
+        raise HTTPException(404)
+    with LOCK:
+        try:
+            return assistant.confirm(ctx(), aid, cancel=decision == "cancel")
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+
+
 @app.get("/api/activity")
 def activity(limit: int = 200):
     with LOCK:

@@ -17,6 +17,7 @@
   --paper:#f3eee4; --paper-2:#e9e2d4; --paper-ink:#1c1d21; --paper-muted:#6f6a61;
   --serif:"Newsreader", Georgia, serif; --sans:"Inter", system-ui, sans-serif;
   --r:14px;
+  --groove:#03060d; --groove-in:#16203a; --knob:#33415f; --knob-icon:#dfe6f2; --trail:#c34bd6;
   color-scheme: dark;
 }
 :root[data-theme="light"]{
@@ -26,6 +27,7 @@
   --accent:#a86a00; --accent-ink:#fff;
   --ok:#147a4b; --bad:#b4372a; --warn:#a86a00;
   --paper:#fbf8f2; --paper-2:#f1ebe0;
+  --groove:#cfd5dd; --groove-in:#e3e7ec; --knob:#f8f9fb; --knob-icon:#3c4350; --trail:#ff9a5c;
   color-scheme: light;
 }
 *{box-sizing:border-box}
@@ -40,7 +42,7 @@ h1 em,h2 em{font-style:italic}
 .app{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
 
 /* ---------- sidebar */
-.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:20px;padding:22px 14px 18px;border-right:1px solid var(--line);background:var(--ground)}
+.side{position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:20px;padding:22px 14px 18px;border-right:1px solid var(--line);background:var(--ground)}
 .brand{display:flex;align-items:baseline;gap:8px;padding:0 10px;text-decoration:none}
 .brand b{font:300 26px/1 var(--serif);letter-spacing:-.02em}
 .brand i{font:italic 300 26px/1 var(--serif);color:var(--muted)}
@@ -223,6 +225,59 @@ input:focus,textarea:focus,select:focus{border-color:var(--line-2)}
 .esc-card{background:var(--raised);border-radius:var(--r);padding:20px;margin-bottom:12px}
 .esc-card h3{font-size:24px}
 
+
+.footrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.tswrap{width:84px;height:65px;flex:none}
+.tswrap .tswitch{transform:scale(.8);transform-origin:top left}
+/* ---------- theme switch: a knob that travels round a curved groove (light = flat, dark = round the corner) */
+.tswitch{position:relative;width:104px;height:80px;flex:none;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tswitch > svg{position:absolute;inset:0;width:104px;height:80px;overflow:visible}
+.tswitch .groove{stroke:var(--groove);stroke-width:26;stroke-linecap:round;fill:none}
+.tswitch .groove-in{stroke:var(--groove-in);stroke-width:23;stroke-linecap:round;fill:none}
+.tswitch .trail{stroke:var(--trail);stroke-width:9;stroke-linecap:round;fill:none;stroke-dasharray:140;stroke-dashoffset:140;filter:blur(3px);opacity:.85;transition:stroke-dashoffset .75s cubic-bezier(.65,0,.35,1)}
+:root:not([data-theme="light"]) .tswitch .trail{stroke-dashoffset:0}
+.tswitch .knob{position:absolute;left:0;top:0;width:38px;height:28px;border-radius:14px;offset-path:path("M16 16 H50 A36 36 0 0 1 86 52 V66");
+  offset-rotate:auto;offset-distance:0%;transition:offset-distance .75s cubic-bezier(.65,0,.35,1),background .4s;background:var(--knob);
+  box-shadow:0 6px 14px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.55);display:grid;place-items:center}
+:root:not([data-theme="light"]) .tswitch .knob{offset-distance:100%}
+.tswitch .knob::after{content:"";position:absolute;right:5px;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:var(--trail);filter:blur(4px);opacity:.9}
+.tswitch .knob svg{width:13px;height:13px;stroke:var(--knob-icon);stroke-width:1.8;stroke-linecap:round;fill:none;position:relative;z-index:1}
+.tswitch:hover .knob{box-shadow:0 8px 18px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.6)}
+.tswitch:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:14px}
+@media (prefers-reduced-motion:reduce){.tswitch .knob,.tswitch .trail{transition:none}}
+
+/* ---------- assistant */
+.ai-fab{position:fixed;right:22px;bottom:22px;z-index:40;display:flex;align-items:center;gap:10px;padding:12px 18px 12px 14px;border-radius:99px;border:0;cursor:pointer;
+  background:var(--accent);color:var(--accent-ink);font-weight:600;box-shadow:0 12px 30px rgba(0,0,0,.35);transition:transform .15s}
+.ai-fab:hover{transform:translateY(-2px)} .ai-fab:active{transform:scale(.97)}
+.ai-fab svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ai{position:fixed;right:22px;bottom:22px;z-index:45;width:min(420px,calc(100vw - 32px));height:min(640px,calc(100vh - 44px));display:flex;flex-direction:column;
+  background:var(--raised);border:1px solid var(--line-2);border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.45);overflow:hidden}
+.ai-head{display:flex;align-items:center;gap:10px;padding:16px 16px 12px 20px}
+.ai-head h2{font-size:24px;margin:0;flex:1}
+.ai-head .sub{display:block;font:13px/1.3 var(--sans);color:var(--muted);letter-spacing:0;margin-top:2px}
+.ai-body{flex:1;overflow:auto;padding:4px 16px 12px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:88%;padding:10px 14px;border-radius:16px;white-space:pre-wrap;font-size:14.5px;line-height:1.5}
+.msg.user{align-self:flex-end;background:var(--accent);color:var(--accent-ink);border-bottom-right-radius:6px}
+.msg.assistant{align-self:flex-start;background:var(--raised-2);border-bottom-left-radius:6px}
+.msg .links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;white-space:normal}
+.msg .links a{font-size:13px;padding:3px 10px;border-radius:99px;background:var(--raised-3);text-decoration:none}
+.msg .links a:hover{background:var(--line-2)}
+.confirm{margin-top:10px;padding:12px;border-radius:12px;background:var(--raised-3);white-space:normal}
+.confirm b{display:block;font-weight:600;margin-bottom:8px}
+.confirm .row{display:flex;gap:8px;align-items:center}
+.ai-sugg{display:flex;flex-wrap:wrap;gap:8px}
+.ai-sugg button{background:var(--raised-2);border:1px solid var(--line-2);color:var(--ink);border-radius:99px;padding:7px 12px;font-size:13.5px;cursor:pointer;text-align:left}
+.ai-sugg button:hover{background:var(--raised-3)}
+.ai-intro{color:var(--muted);font-size:14px;margin:6px 2px 4px}
+.ai-intro h3{font-size:26px;color:var(--ink);margin-bottom:6px}
+.ai-foot{display:flex;gap:8px;align-items:flex-end;padding:12px 14px 14px;border-top:1px solid var(--line)}
+.ai-foot textarea{resize:none;min-height:44px;max-height:140px;border-radius:14px;font-size:14.5px}
+.ai-foot .btn{padding:11px 16px}
+.typing{align-self:flex-start;color:var(--muted);font-size:13.5px;padding:4px 6px}
+.iconbtn{background:none;border:0;color:var(--muted);cursor:pointer;padding:6px;border-radius:8px;font-size:13px}
+.iconbtn:hover{color:var(--ink);background:var(--raised-2)}
+
 @media (max-width:1180px){
   .split3{grid-template-columns:280px minmax(0,1fr)}
   .split3 .ov{grid-column:1/-1;position:static;max-height:none}
@@ -264,17 +319,31 @@ input:focus,textarea:focus,select:focus{border-color:var(--line-2)}
     <div class="side-foot">
       <div class="modebox" id="modebox"><b>…</b><span></span></div>
       <div class="dots" id="dots"></div>
-      <div class="worker">
-        <button class="switch" id="autoTick" role="switch" aria-checked="false" aria-label="Run the agent automatically"></button>
-        <div><div>Agent runs every 20s</div><button class="linkbtn small" id="tickNow">Run once now</button></div>
+      <div class="footrow">
+        <div class="worker">
+          <button class="switch" id="autoTick" role="switch" aria-checked="false" aria-label="Run the agent automatically"></button>
+          <div><div>Auto-run</div><button class="linkbtn small" id="tickNow">Run now</button></div>
+        </div>
+        <div class="tswrap">
+      <button class="tswitch" id="theme" role="switch" aria-checked="true" aria-label="Dark mode">
+        <svg viewBox="0 0 104 80" aria-hidden="true"><path class="groove" d="M16 16 H50 A36 36 0 0 1 86 52 V66"/><path class="groove-in" d="M16 16 H50 A36 36 0 0 1 86 52 V66"/><path class="trail" d="M16 16 H50 A36 36 0 0 1 86 52 V66"/></svg>
+        <span class="knob"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></span>
+      </button>
+        </div>
       </div>
       <div class="faint small" id="tickMsg"></div>
-      <button class="linkbtn small" id="theme" style="align-self:flex-start">Light theme</button>
     </div>
   </aside>
   <main id="view" tabindex="-1"></main>
 </div>
 <div class="toast" id="toast" hidden></div>
+<button class="ai-fab" id="aiFab" aria-haspopup="dialog" aria-controls="ai"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>Ask the assistant</button>
+<section class="ai" id="ai" role="dialog" aria-label="Project assistant" hidden>
+  <div class="ai-head"><h2>Assistant<span class="sub">Only about this project. It can also do the work.</span></h2>
+    <button class="iconbtn" id="aiNew" title="Start a new chat">New chat</button><button class="iconbtn" id="aiClose" aria-label="Close assistant">✕</button></div>
+  <div class="ai-body" id="aiBody" aria-live="polite"></div>
+  <form class="ai-foot" id="aiForm"><textarea id="aiIn" rows="1" placeholder="Ask, or tell it what to do…" aria-label="Message the assistant"></textarea><button class="btn" id="aiSend">Send</button></form>
+</section>
 <script>
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -762,10 +831,56 @@ $("#autoTick").onclick = () => { const on = $("#autoTick").getAttribute("aria-ch
   try { localStorage.setItem("autoTick", on ? "1" : "0"); } catch(e) {} if (on) tickNow(); };
 setInterval(() => { if ($("#autoTick").getAttribute("aria-checked") === "true" && !document.hidden) tickNow(); }, 20000);
 setInterval(() => { if (!document.hidden && !ticking) { loadShell(); if (["overview","pipeline","needs","activity","inbox","approvals"].includes(S.r && S.r.name)) render(true); } }, 30000);
-function applyTheme(t){ document.documentElement.dataset.theme = t; $("#theme").textContent = t === "light" ? "Dark theme" : "Light theme"; }
+function applyTheme(t){ document.documentElement.dataset.theme = t; $("#theme").setAttribute("aria-checked", String(t !== "light")); }
 let theme = "dark"; try { theme = localStorage.getItem("theme") || "dark"; } catch(e) {}
 applyTheme(theme);
 $("#theme").onclick = () => { theme = theme === "light" ? "dark" : "light"; applyTheme(theme); try { localStorage.setItem("theme", theme); } catch(e) {} };
+
+// ---------- project assistant
+const AI = {conv: null, busy: false};
+try { AI.conv = localStorage.getItem("aiConv"); } catch(e) {}
+if (!AI.conv) { AI.conv = "c" + Math.random().toString(36).slice(2, 10); try { localStorage.setItem("aiConv", AI.conv); } catch(e) {} }
+const SUGG = ["What needs my immediate attention?", "When did we do the last run?", "Find SaaS companies with 50-200 employees in the US",
+  "What happened with AcmeCloud?", "Do a follow up with AcmeCloud", "Run the agent now"];
+function aiMsgHTML(m){
+  const d = m.data || {};
+  const links = (d.links || []).map(l => `<a href="${esc(l.href)}" onclick="aiNav(event,'${esc(l.href)}')">${esc(l.label)} →</a>`).join("");
+  const acts = (d.actions || []).map(a => `<div class="confirm" id="act_${esc(a.id)}"><b>${esc(a.summary)}</b>${a.status && a.status !== "pending"
+      ? `<span class="tag ${a.status === "done" ? "ok" : a.status === "failed" ? "bad" : ""}">${esc(a.status === "done" ? "Done" : a.status === "failed" ? "Failed" : "Cancelled")}</span>`
+      : `<div class="row"><button class="btn sm" onclick="aiDecide('${esc(a.id)}','confirm')">Confirm</button><button class="btn quiet sm" onclick="aiDecide('${esc(a.id)}','cancel')">Cancel</button></div>`}</div>`).join("");
+  return `<div class="msg ${m.role === "user" ? "user" : "assistant"}">${esc(m.content)}${links ? `<div class="links">${links}</div>` : ""}${acts}</div>`;
+}
+function aiNav(e, href){ e.preventDefault(); location.hash = href; if (window.innerWidth < 860) aiShow(false); }
+async function aiLoad(){
+  const h = await api(`/api/assistant/${AI.conv}`);
+  $("#aiBody").innerHTML = h.length ? h.map(aiMsgHTML).join("") :
+    `<div class="ai-intro"><h3>Ask about the project, or give it work.</h3>It reads only this app's data and won't answer anything else. Sending emails or starting research always waits for your Confirm.</div>
+     <div class="ai-sugg">${SUGG.map(x => `<button type="button" onclick="aiSend(this.textContent)">${esc(x)}</button>`).join("")}</div>`;
+  $("#aiBody").scrollTop = 1e9;
+}
+function aiShow(on){ $("#ai").hidden = !on; $("#aiFab").hidden = on; if (on) { aiLoad(); setTimeout(() => $("#aiIn").focus(), 50); } else $("#aiFab").focus(); }
+async function aiSend(text){
+  text = (text || $("#aiIn").value).trim(); if (!text || AI.busy) return;
+  AI.busy = true; $("#aiIn").value = ""; $("#aiSend").disabled = true;
+  if ($(".ai-intro")) $("#aiBody").innerHTML = "";
+  $("#aiBody").insertAdjacentHTML("beforeend", aiMsgHTML({role: "user", content: text}) + `<div class="typing" id="aiTyping">Working on it…</div>`);
+  $("#aiBody").scrollTop = 1e9;
+  try { await post("/api/assistant", {conversation_id: AI.conv, message: text}); }
+  catch(e) { $("#aiBody").insertAdjacentHTML("beforeend", aiMsgHTML({role: "assistant", content: "Sorry, that failed: " + e.message})); }
+  AI.busy = false; $("#aiSend").disabled = false; await aiLoad(); loadShell(); render(true);
+}
+async function aiDecide(id, decision){
+  const box = $("#act_" + id); if (box) box.querySelectorAll("button").forEach(b => b.disabled = true);
+  try { await post(`/api/assistant/actions/${id}/${decision}`); } catch(e) { toast(e.message); }
+  await aiLoad(); loadShell(); render(true);
+}
+$("#aiFab").onclick = () => aiShow(true);
+$("#aiClose").onclick = () => aiShow(false);
+$("#aiNew").onclick = () => { AI.conv = "c" + Math.random().toString(36).slice(2, 10); try { localStorage.setItem("aiConv", AI.conv); } catch(e) {} aiLoad(); };
+$("#aiForm").onsubmit = e => { e.preventDefault(); aiSend(); };
+$("#aiIn").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); aiSend(); } });
+$("#aiIn").addEventListener("input", e => { e.target.style.height = "auto"; e.target.style.height = Math.min(140, e.target.scrollHeight) + "px"; });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#ai").hidden) aiShow(false); });
 loadShell().then(() => render(false));
 </script>
 </body>

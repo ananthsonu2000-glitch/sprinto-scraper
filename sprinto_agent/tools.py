@@ -48,7 +48,7 @@ class HunterIn(BaseModel):
 class SendEmailIn(BaseModel):
     prospect_id: str
     op_id: str
-    purpose: Literal["initial_outreach", "propose_times", "clarify", "info_answer", "booking_confirmation", "acknowledge"]
+    purpose: Literal["initial_outreach", "propose_times", "clarify", "info_answer", "booking_confirmation", "acknowledge", "follow_up"]
     subject: str
     body: str
     in_reply_to_message_id: Optional[str] = None

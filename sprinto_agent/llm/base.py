@@ -13,7 +13,7 @@ from pydantic import BaseModel
 T = TypeVar("T", bound=BaseModel)
 
 UNTRUSTED_KEYS = {"pages": "website_content", "evidence": "website_evidence", "reply_body": "email_reply",
-                  "thread": "email_thread"}
+                  "thread": "email_thread", "tool_results": "project_data"}
 
 
 def render_user_prompt(context: dict) -> str:

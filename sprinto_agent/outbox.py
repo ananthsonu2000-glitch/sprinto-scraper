@@ -18,6 +18,7 @@ PURPOSE_LABEL = {
     "info_answer": "Answers a question",
     "clarify": "Asks to clarify",
     "booking_confirmation": "Confirms the booked meeting",
+    "follow_up": "Follow-up",
 }
 
 

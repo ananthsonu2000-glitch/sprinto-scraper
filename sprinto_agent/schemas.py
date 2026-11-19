@@ -165,3 +165,16 @@ class InfoAnswer(BaseModel):
     capability_ids: list[str]
     unanswerable: bool
     reason: str
+
+
+class AssistantStep(BaseModel):
+    """One step of the project assistant: call a tool, or answer the user."""
+    on_topic: bool = Field(description="false if the user's message is not about this prospecting project")
+    tool: Optional[str] = Field(default=None, description="name of the tool to call next; null to answer now")
+    args_json: str = Field(default="{}", description="tool arguments as a JSON object string")
+    answer: Optional[str] = Field(default=None, description="the reply to the user when tool is null")
+
+
+class FollowUpDraft(BaseModel):
+    subject: str
+    body: str
