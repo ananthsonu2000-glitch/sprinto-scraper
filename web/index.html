@@ -226,9 +226,11 @@ input:focus,textarea:focus,select:focus{border-color:var(--line-2)}
 .esc-card h3{font-size:24px}
 
 
-.footrow{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.tswrap{width:84px;height:65px;flex:none}
-.tswrap .tswitch{transform:scale(.8);transform-origin:top left}
+.footrow{display:flex;align-items:center;gap:8px}
+.mainwrap{position:relative;min-width:0}
+.corner{position:absolute;top:14px;right:clamp(16px,3vw,40px);z-index:5}
+.page-head,.hero{padding-right:120px}
+@media (max-width:860px){.corner{top:8px;right:10px;transform:scale(.75);transform-origin:top right}.page-head,.hero{padding-right:84px}}
 /* ---------- theme switch: a knob that travels round a curved groove (light = flat, dark = round the corner) */
 .tswitch{position:relative;width:104px;height:80px;flex:none;background:none;border:0;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .tswitch > svg{position:absolute;inset:0;width:104px;height:80px;overflow:visible}
@@ -324,17 +326,19 @@ input:focus,textarea:focus,select:focus{border-color:var(--line-2)}
           <button class="switch" id="autoTick" role="switch" aria-checked="false" aria-label="Run the agent automatically"></button>
           <div><div>Auto-run</div><button class="linkbtn small" id="tickNow">Run now</button></div>
         </div>
-        <div class="tswrap">
-      <button class="tswitch" id="theme" role="switch" aria-checked="true" aria-label="Dark mode">
-        <svg viewBox="0 0 104 80" aria-hidden="true"><path class="groove" d="M16 16 H50 A36 36 0 0 1 86 52 V66"/><path class="groove-in" d="M16 16 H50 A36 36 0 0 1 86 52 V66"/><path class="trail" d="M16 16 H50 A36 36 0 0 1 86 52 V66"/></svg>
-        <span class="knob"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></span>
-      </button>
-        </div>
       </div>
       <div class="faint small" id="tickMsg"></div>
     </div>
   </aside>
-  <main id="view" tabindex="-1"></main>
+  <div class="mainwrap">
+    <div class="corner">
+      <button class="tswitch" id="theme" role="switch" aria-checked="true" aria-label="Dark mode">
+        <svg viewBox="0 0 104 80" aria-hidden="true"><path class="groove" d="M16 16 H50 A36 36 0 0 1 86 52 V66"/><path class="groove-in" d="M16 16 H50 A36 36 0 0 1 86 52 V66"/><path class="trail" d="M16 16 H50 A36 36 0 0 1 86 52 V66"/></svg>
+        <span class="knob"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></span>
+      </button>
+    </div>
+    <main id="view" tabindex="-1"></main>
+  </div>
 </div>
 <div class="toast" id="toast" hidden></div>
 <button class="ai-fab" id="aiFab" aria-haspopup="dialog" aria-controls="ai"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9z"/><path d="M19 15l.7 1.8 1.8.7-1.8.7L19 20l-.7-1.8-1.8-.7 1.8-.7z"/></svg>Ask the assistant</button>
